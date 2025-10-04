@@ -58,7 +58,7 @@ Seed script que popula data/db.sqlite3 a partir de data/*.csv/*.geojson.
 
 Script/startup simples para rodar localmente.
 
-Filtros no frontend por tipo de POI e por município/bbox.
+Filtros no frontend por tipo de POI e por município
 
 Painel de detalhe ao clicar em município (valores e gráficos rápidos).
 
