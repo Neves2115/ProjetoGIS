@@ -9,9 +9,11 @@ Granularidade: municípios do Estado de SP
 
 POIs: Delegacias, postos de saúde, escolas, parques e centros sociais
 
+### Diagrama Entidade - Relacionamento
+<img width="471" height="451" alt="image" src="https://github.com/user-attachments/assets/0651f8a4-3239-4201-b704-5c5bdc475b14" />
+
 ## Crazy-8
 ![657d7170-6658-49e7-83eb-3a001798734d](https://github.com/user-attachments/assets/fb34a31d-b07b-4ae6-9e09-a166d74e6893)
-
 
 ## Histórias de usuário
 
@@ -103,51 +105,3 @@ View: React (Mapa, painéis, forms, gráficos).
 Controller: FastAPI endpoints expõem JSON / GeoJSON e operações CRUD.
 
 Fluxo: Frontend → REST → FastAPI (controllers) → service layer → database
-@startuml
-title Diagrama Entidade-Relacionamento - Aplicação GIS (SP)
-
-entity "Municipio" as Municipio {
-    +id: int <<PK>>
-    nome: string
-    cod_ibge: string
-    geometria: geometry
-}
-
-entity "IndicadorMunicipal" as Indicador {
-    +id: int <<PK>>
-    municipio_id: int <<FK>>
-    ano: int
-    idh: float
-    saneamento: float
-    renda_per_capita: float
-}
-
-entity "POI" as POI {
-    +id: int <<PK>>
-    municipio_id: int <<FK>>
-    tipo: enum
-    nome: string
-    latitude: float
-    longitude: float
-    endereco: string
-    descricao: string
-}
-
-entity "Rota" as Rota {
-    +id: int <<PK>>
-    origem_poi_id: int <<FK>>
-    destino_poi_id: int <<FK>>
-    distancia_km: float
-    duracao_minutos: float
-    caminho_geom: geometry
-}
-
-' RELAÇÕES
-Municipio ||--o{ Indicador : possui
-Municipio ||--o{ POI : contém
-POI ||--o{ Rota : origem
-POI ||--o{ Rota : destino
-
-@enduml
-
-
