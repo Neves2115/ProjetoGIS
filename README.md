@@ -1,6 +1,6 @@
-# GIS — Cobertura de Serviços Públicos (Estado de São Paulo)
+# GIS — Cobertura de Serviços (Estado de São Paulo)
 
-Página web com mapa interativo para visualizar e analisar cobertura de serviços públicos municipais (IDH, saneamento, renda per capita, população) e POIs.
+Página web com mapa interativo para visualizar e analisar cobertura de serviços públicos municipais (IDH, saneamento, renda per capita) e POIs.
 
 
 ## Dados
@@ -8,6 +8,8 @@ Página web com mapa interativo para visualizar e analisar cobertura de serviço
 Granularidade: municípios do Estado de SP
 
 POIs: Delegacias, postos de saúde, escolas, parques e centros sociais
+
+Indicadores: IDH, renda per capita, saneamento
 
 ### Diagrama Entidade - Relacionamento
 <img width="471" height="451" alt="image" src="https://github.com/user-attachments/assets/0651f8a4-3239-4201-b704-5c5bdc475b14" />
