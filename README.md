@@ -103,4 +103,51 @@ View: React (Mapa, painéis, forms, gráficos).
 Controller: FastAPI endpoints expõem JSON / GeoJSON e operações CRUD.
 
 Fluxo: Frontend → REST → FastAPI (controllers) → service layer → database
+@startuml
+title Diagrama Entidade-Relacionamento - Aplicação GIS (SP)
+
+entity "Municipio" as Municipio {
+    +id: int <<PK>>
+    nome: string
+    cod_ibge: string
+    geometria: geometry
+}
+
+entity "IndicadorMunicipal" as Indicador {
+    +id: int <<PK>>
+    municipio_id: int <<FK>>
+    ano: int
+    idh: float
+    saneamento: float
+    renda_per_capita: float
+}
+
+entity "POI" as POI {
+    +id: int <<PK>>
+    municipio_id: int <<FK>>
+    tipo: enum
+    nome: string
+    latitude: float
+    longitude: float
+    endereco: string
+    descricao: string
+}
+
+entity "Rota" as Rota {
+    +id: int <<PK>>
+    origem_poi_id: int <<FK>>
+    destino_poi_id: int <<FK>>
+    distancia_km: float
+    duracao_minutos: float
+    caminho_geom: geometry
+}
+
+' RELAÇÕES
+Municipio ||--o{ Indicador : possui
+Municipio ||--o{ POI : contém
+POI ||--o{ Rota : origem
+POI ||--o{ Rota : destino
+
+@enduml
+
 
