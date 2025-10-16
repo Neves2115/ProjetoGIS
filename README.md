@@ -11,6 +11,8 @@ POIs: Delegacias, postos de saúde, escolas, parques e centros sociais
 
 Indicadores: IDH, renda per capita, saneamento
 https://repositorio.seade.gov.br/dataset/saneamento-estado-de-sao-paulo-e-brasil/resource/88803cbd-1c5b-4808-b2d5-2a3550b888b8?inner_span=True
+https://docs.google.com/spreadsheets/d/13DOOnszKTExaCMpp5ujoDnbwQOFPD1Yji11tcI0QQmE/edit?gid=0#gid=0
+https://docs.google.com/spreadsheets/d/17pi-H6D0zx4zMSTkdx5EQ3ka0oQjDX5rS6DsCgdohOE/edit?gid=1821937161#gid=1821937161
 ### Diagrama Entidade - Relacionamento
 <img width="471" height="451" alt="image" src="https://github.com/user-attachments/assets/0651f8a4-3239-4201-b704-5c5bdc475b14" />
 
