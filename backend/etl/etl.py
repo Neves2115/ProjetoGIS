@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import re
 from unidecode import unidecode
-from models import Base, Municipio, Indicador, POI
+from backend.models import Base, Municipio, Indicador, POI
 
 def normalize_name(s):
     s = "" if pd.isna(s) else str(s)
