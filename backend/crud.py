@@ -2,7 +2,6 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from . import models, schemas
 
-# Municipios
 def list_municipios(db: Session, skip: int = 0, limit: int = 100) -> List[models.Municipio]:
     return db.query(models.Municipio).offset(skip).limit(limit).all()
 
