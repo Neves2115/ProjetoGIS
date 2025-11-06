@@ -1,0 +1,6 @@
+body, html, #root { height: 100%; margin:0; font-family: Arial, sans-serif; }
+.app { display: flex; height: 100vh; }
+.sidebar { width: 320px; padding: 12px; border-right: 1px solid #ddd; box-sizing: border-box; overflow:auto; }
+.map-wrap { flex: 1; position: relative; }
+.poi-list { max-height: 300px; overflow:auto; margin-top:12px; }
+button { cursor: pointer; }
