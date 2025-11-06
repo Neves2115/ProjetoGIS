@@ -6,9 +6,9 @@ session = SessionLocal()
 # --- 1️⃣ Correção de nomes incorretos ---
 correcoes = {
     "Moji Mirim": "Mogi Mirim",
-    "Florinia": "Florínea",
-    "Sao Luiz do Paratininga": "São Luiz do Paraitinga",
-    "Luis Antonio": "Luiz Antônio",
+    "Florínia": "Florínea",
+    "São Luís do Paraitinga": "São Luiz do Paraitinga",
+    "Luís Antônio": "Luiz Antônio",
 }
 
 for errado, certo in correcoes.items():
