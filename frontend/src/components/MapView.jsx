@@ -1,52 +1,73 @@
-import React, { useEffect, useRef } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
-import L from 'leaflet'
-import { fetchPOIsGeoJSON } from '../api/api'
+import React, { useEffect, useRef, useState } from 'react'
+import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet'
+import { fetchMunicipalitiesGeoJSON } from '../api/api'
 
-// Fix default icon paths on Vite
-delete L.Icon.Default.prototype._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
-})
-
-function FitBounds({ geojson }) {
+// ajusta mapa para caber o GeoJSON
+function FitToGeoJSON({ geojson }) {
   const map = useMap()
   useEffect(() => {
-    if (geojson && geojson.features && geojson.features.length){
-      const coords = geojson.features.map(f => [f.geometry.coordinates[1], f.geometry.coordinates[0]])
-      map.fitBounds(coords, { padding: [40,40] })
-    }
-  }, [geojson, map])
+    if (!geojson || !geojson.features?.length) return
+    try {
+      const layer = L.geoJSON(geojson)
+      map.fitBounds(layer.getBounds(), { padding: [40,40] })
+    } catch (e) { /* ignore */ }
+  }, [geojson])
   return null
 }
 
-export default function MapView({ filters, poisGeoJSON, setPoisGeoJSON, selectedPOI, onSelect }){
+export default function MunicipalitiesMap({ onSelectMunicipio }) {
+  const [gjson, setGjson] = useState(null)
+  const geoRef = useRef(null)
+
   useEffect(() => {
-    // if no geojson loaded, fetch default (small area) once
-    if (!poisGeoJSON) {
-      fetchPOIsGeoJSON({}).then(setPoisGeoJSON).catch(e => console.error(e))
-    }
+    fetchMunicipalitiesGeoJSON().then(setGjson).catch(console.error)
   }, [])
 
-  const features = poisGeoJSON?.features || []
+  function style(feature) {
+    return {
+      color: "#444",
+      weight: 1,
+      fillColor: "#9ecae1",
+      fillOpacity: 0.4
+    }
+  }
+
+  function highlight(e) {
+    const layer = e.target
+    layer.setStyle({ weight: 2, color: '#333', fillOpacity: 0.6 })
+    layer.bringToFront()
+  }
+  function resetHighlight(e) {
+    const layer = e.target
+    geoRef.current.resetStyle(layer)
+  }
+
+  function onEachFeature(feature, layer) {
+    const nome = feature.properties?.nome || feature.properties?.name || '—'
+    layer.bindPopup(`<strong>${nome}</strong>`)
+    layer.on({
+      mouseover: highlight,
+      mouseout: resetHighlight,
+      click: () => {
+        onSelectMunicipio && onSelectMunicipio(feature.properties)
+        // zoom to feature
+        try { layer._map.fitBounds(layer.getBounds(), { padding: [30,30] }) } catch(e){}
+      }
+    })
+  }
 
   return (
-    <MapContainer center={[-23.55, -46.63]} zoom={7} style={{height: '100%', width:'100%'}}>
+    <MapContainer center={[-23.55, -46.63]} zoom={7} style={{height:'100vh', width:'100%'}}>
       <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-      {features.map(f => {
-        const [lon, lat] = f.geometry.coordinates
-        return (
-          <Marker key={f.properties.id} position={[lat, lon]} eventHandlers={{ click: () => onSelect(f) }}>
-            <Popup>
-              <strong>{f.properties.name || '—'}</strong><br/>
-              {f.properties.category}
-            </Popup>
-          </Marker>
-        )
-      })}
-      <FitBounds geojson={poisGeoJSON} />
+      {gjson && (
+        <GeoJSON
+          data={gjson}
+          style={style}
+          onEachFeature={onEachFeature}
+          ref={geoRef}
+        />
+      )}
+      <FitToGeoJSON geojson={gjson} />
     </MapContainer>
   )
 }

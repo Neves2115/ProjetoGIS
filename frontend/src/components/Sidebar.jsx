@@ -1,36 +1,16 @@
-import React, { useState } from 'react'
-import { fetchPOIsGeoJSON } from '../api/api'
-
-export default function Sidebar({ filters, setFilters, setPoisGeoJSON }){
-  const [category, setCategory] = useState(filters.category || '')
-
-  async function applyFilters(){
-    setFilters(f => ({ ...f, category }))
-    try{
-      const geo = await fetchPOIsGeoJSON({ category })
-      setPoisGeoJSON(geo)
-    }catch(e){
-      alert(e.message)
-    }
-  }
-
+export default function SidebarMunicipios({ geojson, onSelect }) {
+  const features = geojson?.features || []
   return (
-    <>
-      <h3>Filtros</h3>
-      <div>
-        <label>Categoria</label><br/>
-        <select value={category} onChange={e=>setCategory(e.target.value)}>
-          <option value="">Todas</option>
-          <option value="saude">Saúde</option>
-          <option value="educacao">Educação</option>
-          <option value="seguranca">Segurança</option>
-          <option value="parques">Parques</option>
-          <option value="centros_sociais">Centros sociais</option>
-        </select>
-      </div>
-      <div style={{marginTop:8}}>
-        <button onClick={applyFilters}>Aplicar</button>
-      </div>
-    </>
+    <aside style={{width:320, padding:12, overflow:'auto'}}>
+      <h3>Municípios ({features.length})</h3>
+      <ul style={{listStyle:'none', padding:0}}>
+        {features.map(f => (
+          <li key={f.properties.ibge_code} style={{padding:6, borderBottom:'1px solid #eee', cursor:'pointer'}}
+              onClick={() => onSelect(f.properties)}>
+            {f.properties.nome}
+          </li>
+        ))}
+      </ul>
+    </aside>
   )
 }

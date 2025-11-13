@@ -16,3 +16,11 @@ export async function fetchMunicipalities(q='') {
   if (!res.ok) throw new Error('Erro ao buscar municípios')
   return res.json()
 }
+
+export async function fetchMunicipalitiesGeoJSON() {
+  const url = `${API_BASE}/municipios/geojson`
+  const res = await fetch(url)
+  if (!res.ok) throw new Error('Erro ao buscar municípios')
+  return res.json() // já retorna { type: "FeatureCollection", features: [...] }
+}
+

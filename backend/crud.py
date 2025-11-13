@@ -16,6 +16,9 @@ def get_indicador_by_ibge(db: Session, ibge_code: str):
 def list_pois(db: Session, skip:int=0, limit:int=100):
     return db.query(models.POI).offset(skip).limit(limit).all()
 
+def list_pois_by_type(db: Session, tipo: str, skip:int=0, limit:int=100):
+    return db.query(models.POI).filter(models.POI.tipo == tipo).offset(skip).limit(limit).all()
+
 def list_pois_in_bbox(db: Session, min_lon: float, min_lat: float, max_lon: float, max_lat: float, tipo: Optional[str]=None):
     q = db.query(models.POI).filter(
         models.POI.longitude >= min_lon,
