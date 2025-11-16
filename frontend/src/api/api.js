@@ -24,3 +24,13 @@ export async function fetchMunicipalitiesGeoJSON() {
   return res.json() // já retorna { type: "FeatureCollection", features: [...] }
 }
 
+export async function fetchIndicadorByIbge(ibge_code) {
+  const url = `${API_BASE}/indicadores/${encodeURIComponent(ibge_code)}`
+  const res = await fetch(url)
+  if (!res.ok) {
+    if (res.status === 404) return null
+    throw new Error('Erro ao buscar indicador')
+  }
+  return res.json()
+}
+

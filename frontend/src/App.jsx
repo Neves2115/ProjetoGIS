@@ -1,21 +1,44 @@
 import React, { useState } from 'react'
-import MapView from './components/MapView'
+import MunicipalitiesMap from './components/MapView'
 import Sidebar from './components/Sidebar'
-import POIList from './components/POIList'
+import { fetchIndicadorByIbge } from './api/api'
 
 export default function App(){
-  const [filters, setFilters] = useState({ category: '', bbox: '' })
-  const [selectedPOI, setSelectedPOI] = useState(null)
-  const [poisGeoJSON, setPoisGeoJSON] = useState(null)
+  const [selectedMunicipio, setSelectedMunicipio] = useState(null) 
+  const [indicador, setIndicador] = useState(null)
+  const [loadingIndicador, setLoadingIndicador] = useState(false)
+
+  // chamado pelo mapa quando usuário clica numa cidade
+  async function handleSelectMunicipio(props){
+    setSelectedMunicipio(props)
+    setIndicador(null)
+    if (!props?.ibge_code) return
+    setLoadingIndicador(true)
+    try{
+      const ind = await fetchIndicadorByIbge(props.ibge_code)
+      setIndicador(ind)   // pode ser null se não existir
+    }catch(err){
+      console.error(err)
+    }finally{
+      setLoadingIndicador(false)
+    }
+  }
+
+  function handleBackFromDetail(){
+    setSelectedMunicipio(null)
+    setIndicador(null)
+  }
 
   return (
-    <div className="app">
-      <div className="sidebar">
-        <Sidebar filters={filters} setFilters={setFilters} setPoisGeoJSON={setPoisGeoJSON} />
-        <POIList poisGeoJSON={poisGeoJSON} onSelect={setSelectedPOI} />
-      </div>
-      <div className="map-wrap">
-        <MapView filters={filters} poisGeoJSON={poisGeoJSON} setPoisGeoJSON={setPoisGeoJSON} selectedPOI={selectedPOI} onSelect={setSelectedPOI} />
+    <div style={{display:'flex', height:'100vh'}}>
+      <Sidebar
+        selectedMunicipio={selectedMunicipio}
+        indicador={indicador}
+        loadingIndicador={loadingIndicador}
+        onBack={handleBackFromDetail}
+      />
+      <div style={{flex:1}}>
+        <MunicipalitiesMap onSelectMunicipio={handleSelectMunicipio} />
       </div>
     </div>
   )

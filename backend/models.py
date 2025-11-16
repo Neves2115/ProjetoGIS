@@ -14,10 +14,14 @@ class Municipio(Base):
 class Indicador(Base):
     __tablename__ = "indicadores"
     id = Column(Integer, primary_key=True)
-    ibge_code = Column(String, index=True, nullable=False)  # FK lógica com Municipio.ibge_code
+    ibge_code = Column(String, index=True, nullable=False)
     idh = Column(Float)
+    idh_renda = Column(Float)         
+    idh_longevidade = Column(Float)   
+    idh_educacao = Column(Float)      
     renda_per_capita = Column(Float)
     saneamento = Column(Float)
+
 
 class POI(Base):
     __tablename__ = "pois"

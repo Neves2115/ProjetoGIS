@@ -2,56 +2,84 @@ import React, { useEffect, useRef, useState } from 'react'
 import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet'
 import { fetchMunicipalitiesGeoJSON } from '../api/api'
 
-// ajusta mapa para caber o GeoJSON
+// Ajusta bounds ao carregar
 function FitToGeoJSON({ geojson }) {
   const map = useMap()
   useEffect(() => {
-    if (!geojson || !geojson.features?.length) return
-    try {
-      const layer = L.geoJSON(geojson)
-      map.fitBounds(layer.getBounds(), { padding: [40,40] })
-    } catch (e) { /* ignore */ }
+    if (!geojson?.features?.length) return
+    const layer = L.geoJSON(geojson)
+    map.fitBounds(layer.getBounds(), { padding: [40,40] })
   }, [geojson])
   return null
 }
 
 export default function MunicipalitiesMap({ onSelectMunicipio }) {
   const [gjson, setGjson] = useState(null)
+  const [selectedCode, setSelectedCode] = useState(null)
   const geoRef = useRef(null)
 
   useEffect(() => {
     fetchMunicipalitiesGeoJSON().then(setGjson).catch(console.error)
   }, [])
 
+  // estilo padrão + verifica seleção
   function style(feature) {
+    const code = feature.properties?.ibge_code
+
+    const isSelected = selectedCode === code
+
     return {
-      color: "#444",
-      weight: 1,
+      color: "#333",
+      weight: isSelected ? 3 : 1,
       fillColor: "#9ecae1",
-      fillOpacity: 0.4
+      fillOpacity: isSelected ? 0.6 : 0.2,
+      dashArray: isSelected ? '' : '1'
     }
   }
 
+  // hover temporário
   function highlight(e) {
     const layer = e.target
+    const code = layer.feature.properties?.ibge_code
+
+    // não modifica se já for o selecionado
+    if (code === selectedCode) return
+
     layer.setStyle({ weight: 2, color: '#333', fillOpacity: 0.6 })
     layer.bringToFront()
   }
+
+  // remover hover temporário
   function resetHighlight(e) {
     const layer = e.target
+    const code = layer.feature.properties?.ibge_code
+
+    // se é o selecionado, não reseta
+    if (code === selectedCode) return
+
     geoRef.current.resetStyle(layer)
   }
 
   function onEachFeature(feature, layer) {
-    const nome = feature.properties?.nome || feature.properties?.name || '—'
+    const nome = feature.properties?.nome || '—'
+
     layer.bindPopup(`<strong>${nome}</strong>`)
+
     layer.on({
       mouseover: highlight,
       mouseout: resetHighlight,
       click: () => {
+        const code = feature.properties?.ibge_code
+        setSelectedCode(code)
+
+        // update sidebar
         onSelectMunicipio && onSelectMunicipio(feature.properties)
-        // zoom to feature
-        try { layer._map.fitBounds(layer.getBounds(), { padding: [30,30] }) } catch(e){}
+
+        // update all shapes
+        try {
+          geoRef.current.setStyle(style)
+        } catch {}
+
       }
     })
   }
