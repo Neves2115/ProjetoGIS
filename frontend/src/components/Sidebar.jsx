@@ -5,17 +5,34 @@ function numberFmt(n) {
   return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(n)
 }
 
-// Classifica IDH conforme PNUD (Brasil)
 function classifyIDH(value) {
   if (value == null) return { label: 'Sem dados', color: '#999' }
-  if (value >= 0.800) return { label: 'Muito Alto', color: '#0b5ed7' } // azul forte
-  if (value >= 0.700) return { label: 'Alto', color: '#0a9d58' }       // verde
-  if (value >= 0.600) return { label: 'Médio', color: '#c6a600' }      // amarelo
-  return { label: 'Baixo', color: '#e67e22' }                          // laranja
+  if (value >= 0.800) return { label: 'Muito Alto', color: '#0b5ed7' }
+  if (value >= 0.700) return { label: 'Alto', color: '#0a9d58' }
+  if (value >= 0.600) return { label: 'Médio', color: '#c6a600' }
+  return { label: 'Baixo', color: '#e67e22' }
 }
 
-export default function Sidebar({ selectedMunicipio, indicador, loadingIndicador, onBack }) {
+export default function Sidebar({
+  selectedMunicipio,
+  indicador,
+  loadingIndicador,
+  onBack,
+  onStartChoropleth,
+  onCloseChoropleth,
+  choroplethActive
+}) {
+  const [selInd, setSelInd] = useState('idh')
   const [showSaneTooltip, setShowSaneTooltip] = useState(false)
+
+  const IND_OPTIONS = [
+    { key: 'idh', label: 'IDH' },
+    { key: 'idh_renda', label: 'IDH — Renda' },
+    { key: 'idh_educacao', label: 'IDH — Educação' },
+    { key: 'idh_longevidade', label: 'IDH — Longevidade' },
+    { key: 'saneamento', label: 'Saneamento (IN046)' },
+    { key: 'renda_per_capita', label: 'PIB per capita' }
+  ]
 
   const sidebarStyle = {
     width: 330,
@@ -68,46 +85,22 @@ export default function Sidebar({ selectedMunicipio, indicador, loadingIndicador
     pointerEvents: 'auto' // essencial para o hover não perder foco
   }
 
-
-  // Modo detalhe
   if (selectedMunicipio) {
     const idhClass = classifyIDH(indicador?.idh)
-
     return (
       <aside style={sidebarStyle}>
+        <button onClick={onBack} style={{ marginBottom: 12 }}>← Voltar</button>
+        <h2 style={{margin:0}}>{selectedMunicipio.nome}</h2>
+
         <div>
-          <button
-            onClick={onBack}
-            style={{
-              marginBottom: 14,
-              background: '#ddd',
-              border: 'none',
-              borderRadius: 6,
-              padding: '6px 10px',
-              cursor: 'pointer'
-            }}
-          >
-            ← Voltar
-          </button>
-
-          <h2 style={{ margin: 0, fontSize: 22 }}>{selectedMunicipio.nome}</h2>
-
-          {loadingIndicador ? (
-            <p style={{ marginTop: 12 }}>Carregando indicadores…</p>
-          ) : (
+          {loadingIndicador ? <p>Carregando indicadores…</p> : (
             <>
-              {/* --- IDH Block --- */}
               <div style={card}>
-                <strong style={{ fontSize: 16 }}>IDH Geral</strong>
-                <div style={{ marginTop: 4, fontSize: 20, fontWeight: 600 }}>
-                  {indicador?.idh ?? '—'}{' '}
-                  <span style={{ color: idhClass.color, fontSize: 18, fontWeight: 700 }}>
-                    • {idhClass.label}
-                  </span>
+                <strong>IDH Geral</strong>
+                <div style={{marginTop:6, fontSize:18, fontWeight:700}}>
+                  {indicador?.idh ?? '—'} <span style={{color: idhClass.color}}>• {idhClass.label}</span>
                 </div>
-
-                {/* Subindicadores */}
-                <ul style={{ listStyle: 'none', padding: 0, marginTop: 10, fontSize: 14,  marginBottom: 0 }}>
+                <ul style={{listStyle:'none', padding:0, marginTop:10}}>
                   <li><strong>Renda:</strong> {indicador?.idh_renda ?? '—'}</li>
                   <li><strong>Longevidade:</strong> {indicador?.idh_longevidade ?? '—'}</li>
                   <li><strong>Educação:</strong> {indicador?.idh_educacao ?? '—'}</li>
@@ -125,7 +118,6 @@ export default function Sidebar({ selectedMunicipio, indicador, loadingIndicador
                     </div>
                   </div>
 
-                  {/* Wrapper que controla todo o hover */}
                   <div
                     style={{ position: 'relative', marginLeft: 10 }}
                     onMouseEnter={() => setShowSaneTooltip(true)}
@@ -175,16 +167,31 @@ export default function Sidebar({ selectedMunicipio, indicador, loadingIndicador
     )
   }
 
-  // Sidebar Padrão
+  // DEFAULT MODE (filters + choropleth controls)
   return (
     <aside style={sidebarStyle}>
-      <div>
-        <h3 style={{ marginTop: 0 }}>Filtros</h3>
-        <p>Use os controles para filtrar pontos e indicadores.</p>
+      <h3>Filtros</h3>
+      <div style={{marginTop:10}}>
+        <label>Indicador para coroplético</label><br/>
+        <select value={selInd} onChange={e=>setSelInd(e.target.value)} style={{width:'100%', padding:6, marginTop:6}}>
+          {IND_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+        </select>
       </div>
-      <footer style={{ fontSize: 11, color: '#666', borderTop: '1px solid #ddd', paddingTop: 8 }}>
-        <strong>Fontes:</strong> IBGE 2010/2021 e SNIS 2021.
-      </footer>
+
+      <div style={{marginTop:12}}>
+        {!choroplethActive ? (
+          <button
+            onClick={() => onStartChoropleth(selInd)}
+            style={{padding:'8px 10px'}}
+          >
+            Abrir mapa coroplético
+          </button>
+        ) : (
+          <button onClick={onCloseChoropleth} style={{padding:'8px 10px'}}>Fechar coroplético</button>
+        )}
+      </div>
+
+      <footer style={{marginTop:'auto', fontSize:11, color:'#666'}}>Fontes: IBGE / SNIS</footer>
     </aside>
   )
 }

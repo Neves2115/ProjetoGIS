@@ -92,6 +92,10 @@ class MunicipioList(BaseModel):
     total: int
     items: List[MunicipioOut]
 
+class IndicadoresList(BaseModel):
+    total: int
+    items: List[MunicipioOut]
+
 class POIList(BaseModel):
     total: int
     items: List[POIOut]

@@ -1,10 +1,15 @@
 # api/routes/indicadores.py
 from fastapi import APIRouter, Depends, HTTPException
+from typing import List
 from sqlalchemy.orm import Session
 from .. import crud, schemas
 from ..db import get_db
 
 router = APIRouter()
+
+@router.get("/", response_model=List[schemas.IndicadorOut])
+def read_indicadores(skip: int = 0, limit: int = 1000, db: Session = Depends(get_db)):
+    return crud.list_indicadores(db, skip=skip, limit=limit)
 
 @router.get("/{ibge_code}", response_model=schemas.IndicadorOut)
 def get_indicador(ibge_code: str, db: Session = Depends(get_db)):

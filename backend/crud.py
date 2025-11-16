@@ -12,6 +12,9 @@ def get_municipio_by_ibge(db: Session, ibge_code: str) -> Optional[models.Munici
 def get_indicador_by_ibge(db: Session, ibge_code: str):
     return db.query(models.Indicador).filter(models.Indicador.ibge_code == ibge_code).first()
 
+def list_indicadores(db: Session, skip: int = 0, limit: int = 100) -> List[models.Indicador]:
+    return db.query(models.Indicador).offset(skip).limit(limit).all()
+
 # POIs
 def list_pois(db: Session, skip:int=0, limit:int=100):
     return db.query(models.POI).offset(skip).limit(limit).all()

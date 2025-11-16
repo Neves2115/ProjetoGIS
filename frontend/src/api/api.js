@@ -34,3 +34,9 @@ export async function fetchIndicadorByIbge(ibge_code) {
   return res.json()
 }
 
+export async function fetchAllIndicadores() {
+  const url = `${API_BASE}/indicadores`
+  const res = await fetch(url)
+  if (!res.ok) throw new Error('Erro ao buscar todos os indicadores')
+  return res.json() // espera array [{ ibge_code, idh, idh_renda, ... }, ...]
+}
