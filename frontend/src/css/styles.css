@@ -4,3 +4,8 @@ body, html, #root { height: 100%; margin:0; font-family: Arial, sans-serif; }
 .map-wrap { flex: 1; position: relative; }
 .poi-list { max-height: 300px; overflow:auto; margin-top:12px; }
 button { cursor: pointer; }
+.leaflet-container .leaflet-interactive:focus,
+.leaflet-container path.leaflet-interactive:focus,
+.leaflet-container svg:focus {
+  outline: none
+}

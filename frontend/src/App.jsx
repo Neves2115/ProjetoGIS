@@ -8,14 +8,11 @@ export default function App(){
   const [indicador, setIndicador] = useState(null)
   const [loadingIndicador, setLoadingIndicador] = useState(false)
 
-  // CHOROPLETH state
   const [choroplethActive, setChoroplethActive] = useState(false)
-  const [choroplethIndicator, setChoroplethIndicator] = useState('idh') // default
-  const [indicatorsMap, setIndicatorsMap] = useState({}) // { ibge_code: {...} }
-  const [loadingChoro, setLoadingChoro] = useState(false)
+  const [choroplethIndicator, setChoroplethIndicator] = useState('idh') 
+  const [indicatorsMap, setIndicatorsMap] = useState({}) 
 
   async function handleSelectMunicipio(props){
-    // quando seleciona cidade, fecha coroplético (regra)
     setChoroplethActive(false)
     setSelectedMunicipio(props)
     setIndicador(null)
@@ -36,35 +33,33 @@ export default function App(){
     setIndicador(null)
   }
 
-  // abrir coroplético: busca todos indicadores (recomendado)
-  async function handleStartChoropleth(indKey = 'idh') {
-    if (selectedMunicipio) {
-      alert('Feche a visualização da cidade antes de abrir o mapa coroplético.')
-      return
-    }
-    setLoadingChoro(true)
-    try {
-      // 1) buscar todos os indicadores do backend (melhor performance)
+  async function startChoropleth(indKey = 'idh'){
+    try{
       const rows = await fetchAllIndicadores()
-      // normalizar para mapa { ibge_code: row }
       const map = {}
       rows.forEach(r => {
-        const code = String(r.ibge_code ?? r.ibge ?? r.ibge_code).trim()
-        map[code] = r
+        const code = String(r.ibge_code ?? r.ibge ?? '').trim()
+        if (code) map[code] = r
       })
       setIndicatorsMap(map)
       setChoroplethIndicator(indKey)
       setChoroplethActive(true)
-    } catch (err) {
-      console.error(err)
-      alert('Erro ao buscar indicadores para o coroplético. Ver console.')
-    } finally {
+    }catch(err){
+      console.error('Erro ao buscar indicadores para coroplético', err)
+    }finally{
       setLoadingChoro(false)
     }
   }
 
-  // fechar coroplético
-  function handleCloseChoropleth(){
+  function changeChoroplethIndicator(indKey){
+    if (!choroplethActive) {r
+      setChoroplethIndicator(indKey)
+      return
+    }
+    setChoroplethIndicator(indKey)
+  }
+
+  function closeChoropleth(){
     setChoroplethActive(false)
     setChoroplethIndicator('idh')
     setIndicatorsMap({})
@@ -77,10 +72,11 @@ export default function App(){
         indicador={indicador}
         loadingIndicador={loadingIndicador}
         onBack={handleBackFromDetail}
-        // coroplético controls
-        onStartChoropleth={handleStartChoropleth}
-        onCloseChoropleth={handleCloseChoropleth}
+        onStartChoropleth={startChoropleth}
+        onChangeChoroplethIndicator={changeChoroplethIndicator}
+        onCloseChoropleth={closeChoropleth}
         choroplethActive={choroplethActive}
+        currentIndicator={choroplethIndicator}
       />
       <div style={{flex:1}}>
         <MunicipalitiesMap

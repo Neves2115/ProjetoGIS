@@ -1,3 +1,4 @@
+// MunicipalitiesMap.jsx
 import React, { useEffect, useRef, useState } from 'react'
 import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet'
 import { fetchMunicipalitiesGeoJSON } from '../api/api'
@@ -13,16 +14,31 @@ function FitToGeoJSON({ geojson }) {
   return null
 }
 
-// We'll create a simple color ramp generator without external libs
+// simple color ramp
 function colorForRange(index, total) {
-  // simple blue ramp
   const t = index / Math.max(1, total-1)
-  const start = [237,248,251] // light
-  const end   = [8,81,156]    // dark
+  const start = [237,248,251]
+  const end   = [8,81,156]
   const r = Math.round(start[0] + (end[0]-start[0])*t)
   const g = Math.round(start[1] + (end[1]-start[1])*t)
   const b = Math.round(start[2] + (end[2]-start[2])*t)
   return `rgb(${r},${g},${b})`
+}
+
+// helper to format indicator values for tooltip
+function formatValueForIndicator(value, indicatorKey) {
+  if (value == null || value === "" || Number.isNaN(Number(value))) return '—'
+  const v = Number(value)
+  if (indicatorKey.startsWith('idh')) {
+    return v.toFixed(3) // e.g. 0.805
+  }
+  if (indicatorKey === 'saneamento') {
+    return `${v.toFixed(2)}%`
+  }
+  if (indicatorKey === 'renda_per_capita' || indicatorKey.includes('pib') || indicatorKey.includes('renda')) {
+    return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 }).format(v)
+  }
+  return String(v)
 }
 
 export default function MunicipalitiesMap({
@@ -46,7 +62,8 @@ export default function MunicipalitiesMap({
     for (const f of gjson.features) {
       const code = String(f.properties?.ibge_code ?? f.properties?.id ?? '').trim()
       const row = indicatorsMap[code]
-      const v = row ? (row[choroplethIndicator] ?? row[choroplethIndicator.replace('pib','renda_per_capita')]) : null
+      const key = choroplethIndicator
+      const v = row ? (row[key] ?? row[key.replace('pib','renda_per_capita')]) : null
       if (v != null && !isNaN(Number(v))) vals.push(Number(v))
     }
     return vals
@@ -69,7 +86,6 @@ export default function MunicipalitiesMap({
     const row = indicatorsMap[code]
     const v = row ? Number(row[choroplethIndicator]) : null
     if (v == null || isNaN(v)) return '#eee'
-    // choose bucket
     for (let i=0;i<breaks.length;i++){
       if (v <= breaks[i]) return colorForRange(i, breaks.length)
     }
@@ -104,10 +120,35 @@ export default function MunicipalitiesMap({
 
   function onEachFeature(feature, layer) {
     const nome = feature.properties?.nome || '—'
-    layer.bindPopup(`<strong>${nome}</strong>`)
+
+
+    // mouse handlers
     layer.on({
-      mouseover: highlight,
-      mouseout: resetHighlight,
+      mouseover: (e) => {
+        highlight(e)
+
+        // if choropleth active, show small tooltip with name + indicator value
+        if (choroplethActive) {
+          const code = String(feature.properties?.ibge_code ?? '').trim()
+          const row = indicatorsMap[code]
+          const raw = row ? (row[choroplethIndicator] ?? row[choroplethIndicator.replace('pib','renda_per_capita')]) : null
+          const formatted = (raw == null) ? 'Sem dados' : formatValueForIndicator(raw, choroplethIndicator)
+          const content = `<strong>${nome}</strong><br/><small>${formatted}</small>`
+          // ensure old tooltip removed
+          try { layer.unbindTooltip() } catch {}
+          layer.bindTooltip(content, { sticky: true, direction: 'auto', offset: [0, -10], opacity: 0.95 }).openTooltip()
+        }
+        else {
+          const content = `<strong>${nome}</strong>`
+          try { layer.unbindTooltip() } catch {}
+          layer.bindTooltip(content, { sticky: true, direction: 'auto', offset: [0, -10], opacity: 0.95 }).openTooltip()
+        }
+      },
+      mouseout: (e) => {
+        // close tooltip + reset style
+        try { layer.closeTooltip(); layer.unbindTooltip() } catch {}
+        resetHighlight(e)
+      },
       click: () => {
         const code = String(feature.properties?.ibge_code ?? '').trim()
         setSelectedCode(code)
@@ -130,7 +171,8 @@ export default function MunicipalitiesMap({
     }
     return (
       <div style={{
-        position:'absolute', right:10, bottom:10, background:'#fff', padding:8, borderRadius:6, boxShadow:'0 4px 12px rgba(0,0,0,0.12)', zIndex:999
+        position:'absolute', right:10, bottom:10, background:'#fff', padding:8, borderRadius:6,
+        boxShadow:'0 4px 12px rgba(0,0,0,0.12)', zIndex:999
       }}>
         <strong style={{display:'block', marginBottom:6}}>Legenda</strong>
         {items.map((it,idx)=>(

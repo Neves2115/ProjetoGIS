@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 
 function numberFmt(n) {
   if (n == null) return '—'
@@ -19,10 +19,13 @@ export default function Sidebar({
   loadingIndicador,
   onBack,
   onStartChoropleth,
+  onChangeChoroplethIndicator,
   onCloseChoropleth,
-  choroplethActive
+  choroplethActive,
+  currentIndicator
 }) {
-  const [selInd, setSelInd] = useState('idh')
+  const [selectedIndicator, setSelectedIndicator] = useState(currentIndicator ?? 'idh')
+  const [filtrosAbertos, setFiltrosAbertos] = useState(false)
   const [showSaneTooltip, setShowSaneTooltip] = useState(false)
 
   const IND_OPTIONS = [
@@ -33,6 +36,21 @@ export default function Sidebar({
     { key: 'saneamento', label: 'Saneamento (IN046)' },
     { key: 'renda_per_capita', label: 'PIB per capita' }
   ]
+
+  useEffect(() => {
+    // if choropleth is active, changing select should immediately update the map
+    if (choroplethActive && onChangeChoroplethIndicator) {
+      onChangeChoroplethIndicator(selectedIndicator)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIndicator])
+
+  useEffect(() => {
+    // keep local select synced when parent changes currentIndicator
+    if (currentIndicator && currentIndicator !== selectedIndicator) {
+      setSelectedIndicator(currentIndicator)
+    }
+  }, [currentIndicator])
 
   const sidebarStyle = {
     width: 330,
@@ -82,9 +100,10 @@ export default function Sidebar({
     fontSize: 12,
     zIndex: 9999,
     lineHeight: 1.35,
-    pointerEvents: 'auto' // essencial para o hover não perder foco
+    pointerEvents: 'auto'
   }
 
+  // DETAIL MODE
   if (selectedMunicipio) {
     const idhClass = classifyIDH(indicador?.idh)
     return (
@@ -92,70 +111,63 @@ export default function Sidebar({
         <button onClick={onBack} style={{ marginBottom: 12 }}>← Voltar</button>
         <h2 style={{margin:0}}>{selectedMunicipio.nome}</h2>
 
-        <div>
-          {loadingIndicador ? <p>Carregando indicadores…</p> : (
-            <>
-              <div style={card}>
-                <strong>IDH Geral</strong>
-                <div style={{marginTop:6, fontSize:18, fontWeight:700}}>
-                  {indicador?.idh ?? '—'} <span style={{color: idhClass.color}}>• {idhClass.label}</span>
-                </div>
-                <ul style={{listStyle:'none', padding:0, marginTop:10}}>
-                  <li><strong>Renda:</strong> {indicador?.idh_renda ?? '—'}</li>
-                  <li><strong>Longevidade:</strong> {indicador?.idh_longevidade ?? '—'}</li>
-                  <li><strong>Educação:</strong> {indicador?.idh_educacao ?? '—'}</li>
-                </ul>
+        {loadingIndicador ? <p>Carregando indicadores…</p> : (
+          <>
+            <div style={card}>
+              <strong>IDH Geral</strong>
+              <div style={{marginTop:6, fontSize:18, fontWeight:700}}>
+                {indicador?.idh ?? '—'} <span style={{color: idhClass.color}}>• {idhClass.label}</span>
               </div>
+              <ul style={{listStyle:'none', padding:0, marginTop:10, marginBottom: 0}}>
+                <li><strong>Renda:</strong> {indicador?.idh_renda ?? '—'}</li>
+                <li><strong>Longevidade:</strong> {indicador?.idh_longevidade ?? '—'}</li>
+                <li><strong>Educação:</strong> {indicador?.idh_educacao ?? '—'}</li>
+              </ul>
+            </div>
 
-              <div style={{ ...card, position: 'relative' }}>
-                <div 
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+            <div style={{ ...card, position: 'relative' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <strong>Tratamento de Esgoto - IN046</strong>
+                  <div style={{ marginTop: 6, fontSize: 18, fontWeight: 600 }}>
+                    {indicador?.saneamento != null ? numberFmt(indicador.saneamento) + '%' : '—'}
+                  </div>
+                </div>
+
+                <div
+                  style={{ position: 'relative', marginLeft: 10 }}
+                  onMouseEnter={() => setShowSaneTooltip(true)}
+                  onMouseLeave={() => setShowSaneTooltip(false)}
                 >
-                  <div>
-                    <strong>Tratamento de Esgoto - IN046</strong>
-                    <div style={{ marginTop: 6, fontSize: 18, fontWeight: 600 }}>
-                      {indicador?.saneamento != null ? numberFmt(indicador.saneamento) + '%' : '—'}
+                  <div style={infoIconStyle}>i</div>
+
+                  {showSaneTooltip && (
+                    <div style={tooltipStyle} role="tooltip">
+                      <strong>O que é o IN046?</strong>
+                      <p style={{ margin: '6px 0' }}>
+                        IN046 é o <em>índice de esgoto tratado referido à água consumida</em>.
+                        Representa, em percentual, quanto do esgoto gerado é efetivamente tratado
+                        considerando o volume total de água consumida no município. Quanto maior 
+                        o valor, maior a eficiência no tratamento.
+                      </p>
                     </div>
-                  </div>
-
-                  <div
-                    style={{ position: 'relative', marginLeft: 10 }}
-                    onMouseEnter={() => setShowSaneTooltip(true)}
-                    onMouseLeave={() => setShowSaneTooltip(false)}
-                  >
-                    <div style={infoIconStyle}>i</div>
-
-                    {showSaneTooltip && (
-                      <div style={tooltipStyle} role="tooltip">
-                        <strong>O que é o IN046?</strong>
-                        <p style={{ margin: '6px 0' }}>
-                          IN046 é o <em>índice de esgoto tratado referido à água consumida</em>. 
-                          Representa, em percentual, quanto do esgoto gerado é efetivamente tratado 
-                          considerando o volume total de água consumida no município. Quanto maior 
-                          o valor, maior a eficiência no tratamento.
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
+            </div>
 
-              {/* --- PIB per capita --- */}
-              <div style={card}>
-                <strong>PIB per capita</strong>
-                <p style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>
-                  {indicador?.renda_per_capita != null
-                    ? 'R$ ' + numberFmt(indicador.renda_per_capita)
-                    : '—'}
-                </p>
-              </div>
+            <div style={card}>
+              <strong>PIB per capita</strong>
+              <p style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>
+                {indicador?.renda_per_capita != null ? 'R$ ' + numberFmt(indicador.renda_per_capita) : '—'}
+              </p>
+            </div>
 
-              <div style={{ marginTop: 12, fontSize: 12, color: '#666' }}>
-                Código IBGE: {selectedMunicipio.ibge_code}
-              </div>
-            </>
-          )}
-        </div>
+            <div style={{ marginTop: 12, fontSize: 12, color: '#666' }}>
+              Código IBGE: {selectedMunicipio.ibge_code}
+            </div>
+          </>
+        )}
 
         <footer style={{ fontSize: 11, color: '#666', marginTop: 18, borderTop: '1px solid #ddd', paddingTop: 8, lineHeight: '1.3em' }}>
           <strong>Fontes dos dados:</strong><br />
@@ -171,23 +183,25 @@ export default function Sidebar({
   return (
     <aside style={sidebarStyle}>
       <h3>Filtros</h3>
-      <div style={{marginTop:10}}>
-        <label>Indicador para coroplético</label><br/>
-        <select value={selInd} onChange={e=>setSelInd(e.target.value)} style={{width:'100%', padding:6, marginTop:6}}>
-          {IND_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
-        </select>
-      </div>
+      {choroplethActive ? (
+          <div style={{marginTop:10}}>
+            <label>Indicador para coroplético</label><br/>
+            <select value={selectedIndicator} onChange={e=>setSelectedIndicator(e.target.value)} style={{width:'100%', padding:6, marginTop:6}}>
+              {IND_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+          </div>
+      ) : (
+      <>
+      </>)
+      }
 
-      <div style={{marginTop:12}}>
+      <div style={{marginTop:12, display:'flex', gap:8}}>
         {!choroplethActive ? (
-          <button
-            onClick={() => onStartChoropleth(selInd)}
-            style={{padding:'8px 10px'}}
-          >
-            Abrir mapa coroplético
-          </button>
+          <button onClick={() => onStartChoropleth && onStartChoropleth(selectedIndicator)} style={{padding:'8px 10px'}}>Abrir mapa coroplético</button>
         ) : (
-          <button onClick={onCloseChoropleth} style={{padding:'8px 10px'}}>Fechar coroplético</button>
+          <>
+            <button onClick={() => onCloseChoropleth && onCloseChoropleth()} style={{padding:'8px 10px'}}>Fechar</button>
+          </>
         )}
       </div>
 
