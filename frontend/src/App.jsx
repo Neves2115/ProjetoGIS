@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import MunicipalitiesMap from './components/MapView'
 import Sidebar from './components/Sidebar'
-import { fetchIndicadorByIbge, fetchAllIndicadores } from './api/api'
+import POIDetail from './components/POIDetail'
+import { fetchIndicadorByIbge, fetchAllIndicadores, fetchPOIsByMunicipio, fetchPOIsByBbox } from './api/api'
 
 export default function App(){
   const [selectedMunicipio, setSelectedMunicipio] = useState(null)
@@ -12,10 +13,20 @@ export default function App(){
   const [choroplethIndicator, setChoroplethIndicator] = useState('idh') 
   const [indicatorsMap, setIndicatorsMap] = useState({}) 
 
+  // POI Filtering States
+  const [poisMode, setPoisMode] = useState(false)           // está em modo de filtro POIs
+  const [pois, setPois] = useState([])                      // POIs filtrados
+  const [selectedPOI, setSelectedPOI] = useState(null)       // POI selecionado para detalhe
+  const [loadingPois, setLoadingPois] = useState(false)
+  const [selectedBbox, setSelectedBbox] = useState(null)     // bbox desenhado no mapa
+  const [selectedPoiType, setSelectedPoiType] = useState('')  // tipo de POI selecionado
+
   async function handleSelectMunicipio(props){
     setChoroplethActive(false)
     setSelectedMunicipio(props)
     setIndicador(null)
+    setPoisMode(false)
+    setPois([])
     if (!props?.ibge_code) return
     setLoadingIndicador(true)
     try{
@@ -31,6 +42,9 @@ export default function App(){
   function handleBackFromDetail(){
     setSelectedMunicipio(null)
     setIndicador(null)
+    setPoisMode(false)
+    setPois([])
+    setSelectedPOI(null)
   }
 
   async function startChoropleth(indKey = 'idh'){
@@ -46,13 +60,11 @@ export default function App(){
       setChoroplethActive(true)
     }catch(err){
       console.error('Erro ao buscar indicadores para coroplético', err)
-    }finally{
-      setLoadingChoro(false)
     }
   }
 
   function changeChoroplethIndicator(indKey){
-    if (!choroplethActive) {r
+    if (!choroplethActive) {
       setChoroplethIndicator(indKey)
       return
     }
@@ -63,6 +75,44 @@ export default function App(){
     setChoroplethActive(false)
     setChoroplethIndicator('idh')
     setIndicatorsMap({})
+  }
+
+  // POI Filtering Functions
+  async function handleFilterPoisByMunicipio(ibgeCode) {
+    setLoadingPois(true)
+    setPoisMode(true)
+    try {
+      const filtered = await fetchPOIsByMunicipio(ibgeCode)
+      setPois(filtered || [])
+    } catch (err) {
+      console.error(err)
+      setPois([])
+    } finally {
+      setLoadingPois(false)
+    }
+  }
+
+  async function handleFilterPoisByBbox(minLon, minLat, maxLon, maxLat, tipo) {
+    setLoadingPois(true)
+    setPoisMode(true)
+    try {
+      const filtered = await fetchPOIsByBbox(minLon, minLat, maxLon, maxLat, tipo)
+      setPois(filtered || [])
+      setSelectedBbox({ minLon, minLat, maxLon, maxLat })
+    } catch (err) {
+      console.error(err)
+      setPois([])
+    } finally {
+      setLoadingPois(false)
+    }
+  }
+
+  function handleSelectPOI(poi) {
+    setSelectedPOI(poi)
+  }
+
+  function handleClosePOIDetail() {
+    setSelectedPOI(null)
   }
 
   return (
@@ -77,6 +127,13 @@ export default function App(){
         onCloseChoropleth={closeChoropleth}
         choroplethActive={choroplethActive}
         currentIndicator={choroplethIndicator}
+        poisMode={poisMode}
+        pois={pois}
+        loadingPois={loadingPois}
+        selectedPoiType={selectedPoiType}
+        onFilterPoisByMunicipio={handleFilterPoisByMunicipio}
+        onFilterPoisByBbox={handleFilterPoisByBbox}
+        onSetSelectedPoiType={setSelectedPoiType}
       />
       <div style={{flex:1}}>
         <MunicipalitiesMap
@@ -84,7 +141,10 @@ export default function App(){
           choroplethActive={choroplethActive}
           choroplethIndicator={choroplethIndicator}
           indicatorsMap={indicatorsMap}
+          pois={poisMode ? (selectedPoiType ? pois.filter(p => p.tipo === selectedPoiType) : pois) : []}
+          onSelectPOI={handleSelectPOI}
         />
+        {selectedPOI && <POIDetail poi={selectedPOI} onClose={handleClosePOIDetail} />}
       </div>
     </div>
   )

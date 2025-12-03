@@ -1,6 +1,6 @@
 // src/components/Sidebar.jsx
 import React, { useState, useEffect } from 'react'
-import { fetchMunicipalities, fetchIndicadorByIbge } from '../api/api'
+import { fetchMunicipalities, fetchIndicadorByIbge, fetchPOITypes } from '../api/api'
 
 function numberFmt(n) {
   if (n == null) return '—'
@@ -65,12 +65,22 @@ export default function Sidebar({
   onChangeChoroplethIndicator,
   onCloseChoropleth,
   choroplethActive,
-  currentIndicator
+  currentIndicator,
+  // POI Filtering props
+  poisMode = false,
+  pois = [],
+  loadingPois = false,
+  selectedPoiType = '',
+  onFilterPoisByMunicipio = null,
+  onFilterPoisByBbox = null,
+  onSetSelectedPoiType = null
 }) {
   // ---------- choropleth / filtros ----------
   const [selectedIndicator, setSelectedIndicator] = useState(currentIndicator ?? 'idh')
   const [filtrosAbertos, setFiltrosAbertos] = useState(false)
   const [showSaneTooltip, setShowSaneTooltip] = useState(false)
+  const [poiTypes, setPoiTypes] = useState([])
+  const [loadingPoiTypes, setLoadingPoiTypes] = useState(false)
 
   const IND_OPTIONS = [
     { key: 'idh', label: 'IDH' },
@@ -96,6 +106,26 @@ export default function Sidebar({
     }
   }, [currentIndicator])
 
+  // Carregar tipos de POIs quando montado
+  useEffect(() => {
+    setLoadingPoiTypes(true)
+    fetchPOITypes()
+      .then(data => {
+        setPoiTypes(data.tipos || [])
+      })
+      .catch(err => {
+        console.error('Erro ao carregar tipos de POI:', err)
+        setPoiTypes([])
+      })
+      .finally(() => setLoadingPoiTypes(false))
+  }, [])
+
+  // Sincronizar estado local com props
+  useEffect(() => {
+    setLocalPoisMode(poisMode)
+    setLocalPois(pois)
+  }, [poisMode, pois])
+
   // ---------- comparação ----------
   const [comparing, setComparing] = useState(false)           // modo comparar ativo
   const [municipiosList, setMunicipiosList] = useState([])    // lista para select
@@ -105,6 +135,8 @@ export default function Sidebar({
   const [loadingList, setLoadingList] = useState(false)
   const [loadingCmp, setLoadingCmp] = useState(false)
   const [cmpError, setCmpError] = useState(null)
+  const [localPoisMode, setLocalPoisMode] = useState(poisMode)
+  const [localPois, setLocalPois] = useState(pois)
 
   // buscar lista quando abrir comparar
   useEffect(() => {
@@ -281,7 +313,120 @@ export default function Sidebar({
             </>
           )}
 
-          {/* botões: Comparar + Fechar */}
+          {/* Seção: Filtro de POIs */}
+          <div style={{marginTop: 20, paddingTop: 20, borderTop: '1px solid #ddd'}}>
+            <h3 style={{margin: '0 0 12px 0'}}>🗺️ Filtro de POIs</h3>
+            
+            {!localPoisMode ? (
+              <div style={card}>
+                <button 
+                  onClick={() => {
+                    if (selectedMunicipio?.ibge_code && onFilterPoisByMunicipio) {
+                      onFilterPoisByMunicipio(selectedMunicipio.ibge_code)
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    backgroundColor: '#0b5ed7',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontSize: 14,
+                    fontWeight: 600
+                  }}
+                >
+                  Listar POIs do Município
+                </button>
+              </div>
+            ) : (
+              <div style={card}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
+                  <strong>POIs Encontrados: {localPois.length}</strong>
+                  <button 
+                    onClick={() => {
+                      setLocalPoisMode(false)
+                      setLocalPois([])
+                      onSetSelectedPoiType && onSetSelectedPoiType('')
+                    }}
+                    style={{
+                      padding: '4px 8px',
+                      backgroundColor: '#f0f0f0',
+                      border: '1px solid #ddd',
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                      fontSize: 12
+                    }}
+                  >
+                    Fechar
+                  </button>
+                </div>
+
+                {loadingPois && <div style={{textAlign: 'center', color: '#666'}}>Carregando...</div>}
+
+                {!loadingPois && localPois.length > 0 && (
+                  <>
+                    <div style={{marginBottom: 12}}>
+                      <label style={{fontSize: 12, color: '#666', fontWeight: 600}}>Filtrar por tipo:</label>
+                      <select 
+                        value={selectedPoiType || ''}
+                        onChange={e => {
+                          const newType = e.target.value
+                          onSetSelectedPoiType && onSetSelectedPoiType(newType)
+                        }}
+                        style={{width: '100%', padding: 8, marginTop: 6}}
+                      >
+                        <option value=''>-- Todos os tipos --</option>
+                        {poiTypes.map(tipo => (
+                          <option key={tipo} value={tipo}>{tipo}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div style={{
+                      maxHeight: 300,
+                      overflowY: 'auto',
+                      border: '1px solid #eee',
+                      borderRadius: 6,
+                      padding: 8
+                    }}>
+                      {localPois
+                        .filter(p => !selectedPoiType || p.tipo === selectedPoiType)
+                        .map(poi => (
+                          <div 
+                            key={poi.id}
+                            style={{
+                              padding: 10,
+                              marginBottom: 8,
+                              backgroundColor: '#f9f9f9',
+                              borderRadius: 4,
+                              border: '1px solid #eee',
+                              cursor: 'pointer',
+                              transition: 'background-color 0.2s'
+                            }}
+                            onMouseEnter={e => e.target.style.backgroundColor = '#f0f0f0'}
+                            onMouseLeave={e => e.target.style.backgroundColor = '#f9f9f9'}
+                          >
+                            <div style={{fontWeight: 600, fontSize: 13}}>{poi.nome}</div>
+                            <div style={{fontSize: 11, color: '#666'}}>{poi.tipo}</div>
+                            <div style={{fontSize: 11, color: '#999'}}>ID: {poi.id}</div>
+                          </div>
+                        ))}
+                    </div>
+                  </>
+                )}
+
+                {!loadingPois && localPois.length === 0 && (
+                  <div style={{textAlign: 'center', color: '#999', padding: 12}}>
+                    Nenhum POI encontrado
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* botões: Comparar */}
           <div style={{display:'flex', gap:8, marginTop:12}}>
             <button onClick={() => setComparing(true)} style={{flex:1, padding:8}}>Comparar</button>
           </div>
@@ -385,6 +530,17 @@ export default function Sidebar({
         ) : (
           <button onClick={() => onCloseChoropleth && onCloseChoropleth()} style={{padding:'8px 10px'}}>Fechar</button>
         )}
+      </div>
+
+      {/* POI Filtering Section */}
+      <div style={{marginTop: 20, paddingTop: 20, borderTop: '1px solid #ddd'}}>
+        <h3 style={{margin: 0}}>Filtro de POIs</h3>
+        
+        <div style={card}>
+          <div style={{fontSize:13, color:'#666', marginBottom: 12}}>
+            ℹ️ Selecione um município no mapa para listar e filtrar seus POIs
+          </div>
+        </div>
       </div>
 
       <footer style={{marginTop:'auto', fontSize:11, color:'#666'}}>Fontes: IBGE / SNIS</footer>

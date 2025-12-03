@@ -1,7 +1,7 @@
 # main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .api import municipios, indicadores, pois
+from backend.api import municipios, indicadores, pois
 
 app = FastAPI(title="GIS API")
 

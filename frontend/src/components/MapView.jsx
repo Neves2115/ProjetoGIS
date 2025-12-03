@@ -1,8 +1,64 @@
 // MunicipalitiesMap.jsx
 import React, { useEffect, useRef, useState } from 'react'
-import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, GeoJSON, useMap, Marker, Popup } from 'react-leaflet'
 import { fetchMunicipalitiesGeoJSON } from '../api/api'
 import L from 'leaflet'
+
+// Fix para ícones padrão do leaflet
+delete L.Icon.Default.prototype._getIconUrl
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+})
+
+// Ícone customizado para POIs
+const poiIcons = {
+  default: new L.Icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+  }),
+  hospital: new L.Icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+  }),
+  school: new L.Icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-yellow.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+  }),
+  police: new L.Icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+  }),
+  park: new L.Icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+    shadowSize: [41, 41]
+  })
+}
+
+function getPoiIcon(tipo) {
+  return poiIcons[tipo] || poiIcons.default
+}
 
 function FitToGeoJSON({ geojson }) {
   const map = useMap()
@@ -45,10 +101,13 @@ export default function MunicipalitiesMap({
   onSelectMunicipio,
   choroplethActive = false,
   choroplethIndicator = 'idh',
-  indicatorsMap = {}
+  indicatorsMap = {},
+  pois = [],
+  onSelectPOI = null
 }) {
   const [gjson, setGjson] = useState(null)
   const [selectedCode, setSelectedCode] = useState(null)
+  const [selectedPOI, setSelectedPOI] = useState(null)
   const geoRef = useRef(null)
 
   useEffect(() => {
@@ -152,6 +211,7 @@ export default function MunicipalitiesMap({
       click: () => {
         const code = String(feature.properties?.ibge_code ?? '').trim()
         setSelectedCode(code)
+        setSelectedPOI(null) // fecha detalhe POI ao selecionar município
         onSelectMunicipio && onSelectMunicipio(feature.properties)
         try { geoRef.current.setStyle(style) } catch {}
       }
@@ -201,6 +261,27 @@ export default function MunicipalitiesMap({
             ref={geoRef}
           />
         )}
+        
+        {/* Markers de POIs */}
+        {pois && pois.map(poi => (
+          <Marker
+            key={poi.id}
+            position={[poi.latitude, poi.longitude]}
+            icon={getPoiIcon(poi.tipo)}
+            eventHandlers={{
+              click: () => {
+                setSelectedPOI(poi)
+                onSelectPOI && onSelectPOI(poi)
+              }
+            }}
+          >
+            <Popup>
+              <div style={{fontWeight: 600}}>{poi.nome}</div>
+              <div style={{fontSize: 12, color: '#666'}}>{poi.tipo}</div>
+            </Popup>
+          </Marker>
+        ))}
+
         <FitToGeoJSON geojson={gjson} />
         <Legend />
       </MapContainer>
