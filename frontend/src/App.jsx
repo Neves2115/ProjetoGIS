@@ -21,6 +21,9 @@ export default function App(){
   const [selectedBbox, setSelectedBbox] = useState(null)     // bbox desenhado no mapa
   const [selectedPoiType, setSelectedPoiType] = useState('')  // tipo de POI selecionado
 
+  // Sidebar resize state
+  const [sidebarWidth, setSidebarWidth] = useState(330)
+
   async function handleSelectMunicipio(props){
     setChoroplethActive(false)
     setSelectedMunicipio(props)
@@ -115,27 +118,72 @@ export default function App(){
     setSelectedPOI(null)
   }
 
+  const handleMouseDown = (e) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startWidth = sidebarWidth
+
+    const handleMouseMove = (moveEvent) => {
+      const diff = moveEvent.clientX - startX
+      const newWidth = Math.max(250, Math.min(600, startWidth + diff)) // min 250px, max 600px
+      setSidebarWidth(newWidth)
+    }
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }
+
   return (
     <div style={{display:'flex', height:'100vh'}}>
-      <Sidebar
-        selectedMunicipio={selectedMunicipio}
-        indicador={indicador}
-        loadingIndicador={loadingIndicador}
-        onBack={handleBackFromDetail}
-        onStartChoropleth={startChoropleth}
-        onChangeChoroplethIndicator={changeChoroplethIndicator}
-        onCloseChoropleth={closeChoropleth}
-        choroplethActive={choroplethActive}
-        currentIndicator={choroplethIndicator}
-        poisMode={poisMode}
-        pois={pois}
-        loadingPois={loadingPois}
-        selectedPoiType={selectedPoiType}
-        onFilterPoisByMunicipio={handleFilterPoisByMunicipio}
-        onFilterPoisByBbox={handleFilterPoisByBbox}
-        onSetSelectedPoiType={setSelectedPoiType}
-      />
-      <div style={{flex:1}}>
+      <div style={{width: sidebarWidth, position: 'relative', display: 'flex', flexDirection: 'column'}}>
+        <Sidebar
+          selectedMunicipio={selectedMunicipio}
+          indicador={indicador}
+          loadingIndicador={loadingIndicador}
+          onBack={handleBackFromDetail}
+          onStartChoropleth={startChoropleth}
+          onChangeChoroplethIndicator={changeChoroplethIndicator}
+          onCloseChoropleth={closeChoropleth}
+          choroplethActive={choroplethActive}
+          currentIndicator={choroplethIndicator}
+          poisMode={poisMode}
+          pois={pois}
+          loadingPois={loadingPois}
+          selectedPoiType={selectedPoiType}
+          onFilterPoisByMunicipio={handleFilterPoisByMunicipio}
+          onFilterPoisByBbox={handleFilterPoisByBbox}
+          onSetSelectedPoiType={setSelectedPoiType}
+        />
+        {/* Resize Handle */}
+        <div
+          onMouseDown={handleMouseDown}
+          style={{
+            width: 6,
+            height: '100%',
+            position: 'absolute',
+            right: -3,
+            top: 0,
+            cursor: 'col-resize',
+            backgroundColor: 'transparent',
+            borderRight: '3px solid transparent',
+            transition: 'border-color 0.2s',
+            userSelect: 'none',
+            zIndex: 1000
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.borderRightColor = '#0b5ed7'
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.borderRightColor = 'transparent'
+          }}
+        />
+      </div>
+      <div style={{flex:1, display: 'flex', flexDirection: 'column'}}>
         <MunicipalitiesMap
           onSelectMunicipio={handleSelectMunicipio}
           choroplethActive={choroplethActive}

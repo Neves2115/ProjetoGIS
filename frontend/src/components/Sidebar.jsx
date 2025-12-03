@@ -193,13 +193,16 @@ export default function Sidebar({
 
   // ---------- estilos ----------
   const sidebarStyle = {
-    width: 330,
+    width: '100%',
+    height: '100%',
     padding: 18,
     borderRight: '1px solid #ddd',
     background: '#fafafa',
     fontFamily: 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial',
     display: 'flex',
-    flexDirection: 'column'
+    flexDirection: 'column',
+    overflowY: 'auto',
+    boxSizing: 'border-box'
   }
 
   const card = {
@@ -375,7 +378,7 @@ export default function Sidebar({
                           const newType = e.target.value
                           onSetSelectedPoiType && onSetSelectedPoiType(newType)
                         }}
-                        style={{width: '100%', padding: 8, marginTop: 6}}
+                        style={{width: '100%', padding: 8, marginTop: 6, boxSizing: 'border-box'}}
                       >
                         <option value=''>-- Todos os tipos --</option>
                         {poiTypes.map(tipo => (
@@ -385,11 +388,13 @@ export default function Sidebar({
                     </div>
 
                     <div style={{
-                      maxHeight: 300,
+                      maxHeight: 'calc(100vh - 600px)',
+                      minHeight: 150,
                       overflowY: 'auto',
                       border: '1px solid #eee',
                       borderRadius: 6,
-                      padding: 8
+                      padding: 8,
+                      boxSizing: 'border-box'
                     }}>
                       {localPois
                         .filter(p => !selectedPoiType || p.tipo === selectedPoiType)
