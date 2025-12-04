@@ -24,6 +24,10 @@ export default function App(){
   // Sidebar resize state
   const [sidebarWidth, setSidebarWidth] = useState(330)
 
+  // ----- NOVOS: criar POI -----
+  const [creatingPoiMode, setCreatingPoiMode] = useState(false) // quando true, clique no mapa preenche lat/lon
+  const [mapClickData, setMapClickData] = useState(null) // { lat, lon, matchedFeature }
+
   async function handleSelectMunicipio(props){
     setChoroplethActive(false)
     setSelectedMunicipio(props)
@@ -80,6 +84,21 @@ export default function App(){
     setIndicatorsMap({})
   }
 
+  // ----- NOVOS: handlers para criar POI -----
+  function startCreatePoi() {
+    setCreatingPoiMode(true)
+    setMapClickData(null)
+  }
+  function cancelCreatePoi() {
+    setCreatingPoiMode(false)
+    setMapClickData(null)
+  }
+
+  // recebe do MunicipalitiesMap: { lat, lon, matchedFeature }
+  function handleMapClick(payload) {
+    setMapClickData(payload)
+  }
+
   // POI Filtering Functions
   async function handleFilterPoisByMunicipio(ibgeCode) {
     setLoadingPois(true)
@@ -114,6 +133,13 @@ export default function App(){
     setSelectedPOI(poi)
   }
 
+  function closePois() {
+  setPoisMode(false)
+  setPois([])
+  setSelectedPoiType('') // limpa filtro de tipo também
+  setSelectedBbox(null)
+}
+
   function handleClosePOIDetail() {
     setSelectedPOI(null)
   }
@@ -138,6 +164,22 @@ export default function App(){
     document.addEventListener('mouseup', handleMouseUp)
   }
 
+  // quando um POI é criado com sucesso, opcionalmente re-carregar os POIs do município atual
+  async function handlePoiCreated(newPoi) {
+    // se estivermos em modo de filtro por município, re-carrega
+    if (selectedMunicipio?.ibge_code) {
+      try {
+        const filtered = await fetchPOIsByMunicipio(selectedMunicipio.ibge_code)
+        setPois(filtered || [])
+      } catch (err) {
+        console.error('Erro ao recarregar POIs após criação', err)
+      }
+    }
+    // fechar modo criar (se aberto)
+    setCreatingPoiMode(false)
+    setMapClickData(null)
+  }
+
   return (
     <div style={{display:'flex', height:'100vh'}}>
       <div style={{width: sidebarWidth, position: 'relative', display: 'flex', flexDirection: 'column'}}>
@@ -158,6 +200,14 @@ export default function App(){
           onFilterPoisByMunicipio={handleFilterPoisByMunicipio}
           onFilterPoisByBbox={handleFilterPoisByBbox}
           onSetSelectedPoiType={setSelectedPoiType}
+
+          // novos props
+          creatingPoiMode={creatingPoiMode}
+          onStartCreatePoi={startCreatePoi}
+          onCancelCreatePoi={cancelCreatePoi}
+          mapClickData={mapClickData}
+          onPoiCreated={handlePoiCreated}
+          onClosePois={closePois}
         />
         {/* Resize Handle */}
         <div
@@ -191,6 +241,10 @@ export default function App(){
           indicatorsMap={indicatorsMap}
           pois={poisMode ? (selectedPoiType ? pois.filter(p => p.tipo === selectedPoiType) : pois) : []}
           onSelectPOI={handleSelectPOI}
+
+          // novos props
+          creatingPoiMode={creatingPoiMode}
+          onMapClick={handleMapClick}
         />
         {selectedPOI && <POIDetail poi={selectedPOI} onClose={handleClosePOIDetail} />}
       </div>

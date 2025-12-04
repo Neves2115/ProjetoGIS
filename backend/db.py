@@ -1,16 +1,23 @@
-# db.py
-import os
+# backend/db.py (exemplo)
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from pathlib import Path
 from typing import Generator
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///data/db.sqlite")
+# determina o path absoluto da raiz do projeto a partir de backend/
+BASE_DIR = Path(__file__).resolve().parent      # backend/
+PROJECT_ROOT = BASE_DIR.parent                   # pasta projeto (uma acima)
+DATA_DIR = PROJECT_ROOT / "data"
+DATA_DIR.mkdir(parents=True, exist_ok=True)     # garante que data/ exista
 
-# SQLite specific: avoid check_same_thread on other DBs
-connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+DB_PATH = DATA_DIR / "db.sqlite"
+DB_URL = f"sqlite:///{DB_PATH}"
 
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# opcional: debug
+print("Using SQLite DB at:", DB_PATH)
+
+engine = create_engine(DB_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(bind=engine)
 
 # dependency for FastAPI
 def get_db() -> Generator:

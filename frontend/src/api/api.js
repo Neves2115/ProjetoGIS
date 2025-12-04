@@ -78,3 +78,16 @@ export async function fetchPOIsByBbox(minLon, minLat, maxLon, maxLat, tipo = nul
   if (!res.ok) throw new Error('Erro ao buscar POIs na área')
   return res.json()
 }
+
+export async function createPOI(payload) {
+  const res = await fetch(`${API_BASE}/pois/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const txt = await res.text()
+    throw new Error(`Failed to create POI: ${res.status} ${txt}`)
+  }
+  return res.json()
+}

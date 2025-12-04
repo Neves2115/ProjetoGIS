@@ -1,8 +1,73 @@
 // MunicipalitiesMap.jsx
 import React, { useEffect, useRef, useState } from 'react'
-import { MapContainer, TileLayer, GeoJSON, useMap, Marker, Popup } from 'react-leaflet'
+import { MapContainer, TileLayer, GeoJSON, useMap, Marker, Popup, useMapEvents } from 'react-leaflet'
+import createColorizer from '../utils/createColorizer'   // ajuste caminho conforme sua estrutura
 import { fetchMunicipalitiesGeoJSON } from '../api/api'
 import L from 'leaflet'
+
+function pointInRing(x, y, ring) {
+  // ring: array de [lon, lat]
+  let inside = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0], yi = ring[i][1]
+    const xj = ring[j][0], yj = ring[j][1]
+    const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi + 0.0) + xi)
+    if (intersect) inside = !inside
+  }
+  return inside
+}
+
+function pointInPolygon(lon, lat, geom) {
+  if (!geom) return false
+  const type = geom.type
+  const coords = geom.coordinates
+  if (type === 'Polygon') {
+    // first ring is exterior, others are holes - check exterior and ensure not in hole
+    if (!coords || !coords.length) return false
+    if (!pointInRing(lon, lat, coords[0])) return false
+    // ensure not in any hole
+    for (let i = 1; i < coords.length; i++) {
+      if (pointInRing(lon, lat, coords[i])) return false
+    }
+    return true
+  } else if (type === 'MultiPolygon') {
+    for (const poly of coords) {
+      if (poly && poly.length && pointInRing(lon, lat, poly[0])) {
+        // check holes in this polygon
+        let inHole = false
+        for (let i = 1; i < poly.length; i++) {
+          if (pointInRing(lon, lat, poly[i])) { inHole = true; break }
+        }
+        if (!inHole) return true
+      }
+    }
+    return false
+  }
+  return false
+}
+
+function findFeatureAtLatLng(gjson, lon, lat) {
+  if (!gjson || !gjson.features) return null
+  for (const feat of gjson.features) {
+    if (feat.geometry && pointInPolygon(lon, lat, feat.geometry)) {
+      return feat
+    }
+  }
+  return null
+}
+
+function MapClickHandler({ onMapClick, creatingPoiMode }) {
+  useMapEvents({
+    click(e) {
+      if (!creatingPoiMode) return
+      const { lat, lng } = e.latlng
+      // tentar achar feature localmente — precisamos do gjson; emitiremos lat/lon e deixaremos o pai decidir
+      // NOTA: não temos gjson aqui; vamos delegar para prop onMapClick para o componente pai
+      onMapClick && onMapClick({ lat, lon: lng })
+    }
+  })
+  return null
+}
 
 // Fix para ícones padrão do leaflet
 delete L.Icon.Default.prototype._getIconUrl
@@ -70,16 +135,6 @@ function FitToGeoJSON({ geojson }) {
   return null
 }
 
-// simple color ramp
-function colorForRange(index, total) {
-  const t = index / Math.max(1, total-1)
-  const start = [237,248,251]
-  const end   = [8,81,156]
-  const r = Math.round(start[0] + (end[0]-start[0])*t)
-  const g = Math.round(start[1] + (end[1]-start[1])*t)
-  const b = Math.round(start[2] + (end[2]-start[2])*t)
-  return `rgb(${r},${g},${b})`
-}
 
 // helper to format indicator values for tooltip
 function formatValueForIndicator(value, indicatorKey) {
@@ -103,7 +158,10 @@ export default function MunicipalitiesMap({
   choroplethIndicator = 'idh',
   indicatorsMap = {},
   pois = [],
-  onSelectPOI = null
+  onSelectPOI = null,
+  // novos props
+  creatingPoiMode = false,
+  onMapClick = null
 }) {
   const [gjson, setGjson] = useState(null)
   const [selectedCode, setSelectedCode] = useState(null)
@@ -113,6 +171,20 @@ export default function MunicipalitiesMap({
   useEffect(() => {
     fetchMunicipalitiesGeoJSON().then(setGjson).catch(console.error)
   }, [])
+
+  function handleMapClicked(payload) {
+      // payload: { lat, lon } vindo do MapClickHandler
+      const { lat, lon } = payload
+      let matchedFeature = null
+      try {
+        // tente identificar entre as features carregadas
+        matchedFeature = findFeatureAtLatLng(gjson, lon, lat)
+      } catch (err) {
+        console.warn('Erro ao verificar feature no clique', err)
+        matchedFeature = null
+      }
+      onMapClick && onMapClick({ lat, lon, matchedFeature })
+    }
 
   // compute values array when indicatorsMap or gjson changes
   const values = React.useMemo(() => {
@@ -128,28 +200,20 @@ export default function MunicipalitiesMap({
     return vals
   }, [gjson, indicatorsMap, choroplethIndicator])
 
-  // build breaks: 5 classes equal-interval (simple)
-  const breaks = React.useMemo(() => {
-    if (!values.length) return []
-    const min = Math.min(...values), max = Math.max(...values)
-    const classes = 5
-    const step = (max - min) / classes
-    const arr = []
-    for (let i=1;i<=classes;i++) arr.push(min + step*i)
-    return arr
-  }, [values])
+  const colorizer = React.useMemo(() => {
+    return createColorizer(choroplethIndicator, values, { nClasses: 5 })
+  }, [choroplethIndicator, values])
 
   function getFillColorForFeature(feature) {
     if (!choroplethActive) return "#9ecae1"
     const code = String(feature.properties?.ibge_code ?? '').trim()
     const row = indicatorsMap[code]
-    const v = row ? Number(row[choroplethIndicator]) : null
-    if (v == null || isNaN(v)) return '#eee'
-    for (let i=0;i<breaks.length;i++){
-      if (v <= breaks[i]) return colorForRange(i, breaks.length)
-    }
-    return colorForRange(breaks.length-1, breaks.length)
+    // tenta fallback para chaves alternativas
+    const raw = row ? (row[choroplethIndicator] ?? row[choroplethIndicator.replace('pib','renda_per_capita')]) : null
+    if (raw == null || isNaN(Number(raw))) return '#eee'
+    return colorizer.colorFor(Number(raw))
   }
+
 
   function style(feature) {
     const code = String(feature.properties?.ibge_code ?? '').trim()
@@ -158,7 +222,7 @@ export default function MunicipalitiesMap({
       color: "#333",
       weight: isSelected ? 3 : 1,
       fillColor: getFillColorForFeature(feature),
-      fillOpacity: choroplethActive ? 0.9 : (isSelected ? 0.6 : 0.2),
+      fillOpacity: choroplethActive ? 0.9 : (isSelected ? 0.2 : 0.05),
       dashArray: isSelected ? '' : '1'
     }
   }
@@ -167,7 +231,7 @@ export default function MunicipalitiesMap({
     const layer = e.target
     const code = String(layer.feature.properties?.ibge_code ?? '').trim()
     if (code === selectedCode) return
-    layer.setStyle({ weight: 2, color: '#333', fillOpacity: 0.6 })
+    layer.setStyle({ weight: 2, color: '#333', fillOpacity: 0.2 })
     layer.bringToFront()
   }
   function resetHighlight(e) {
@@ -218,17 +282,9 @@ export default function MunicipalitiesMap({
     })
   }
 
-  // legend component
   function Legend(){
-    if (!choroplethActive || !breaks.length) return null
-    const items = []
-    const steps = breaks.length
-    for (let i=0;i<steps;i++){
-      const label = (i===0) ? `<= ${breaks[i].toFixed(2)}` :
-                    (i===steps-1) ? `> ${breaks[i-1].toFixed(2)}` :
-                    `${breaks[i-1].toFixed(2)} - ${breaks[i].toFixed(2)}`
-      items.push({ color: colorForRange(i, steps), label})
-    }
+    if (!choroplethActive || !colorizer || !colorizer.legend) return null
+    const items = colorizer.legend
     return (
       <div style={{
         position:'absolute', right:10, bottom:10, background:'#fff', padding:8, borderRadius:6,
@@ -241,9 +297,11 @@ export default function MunicipalitiesMap({
             <div style={{fontSize:12}}>{it.label}</div>
           </div>
         ))}
+        <div style={{fontSize:11, color:'#666', marginTop:6}}>Método: {choroplethIndicator}</div>
       </div>
     )
   }
+
 
   // force GeoJSON rerender when choroplethIndicator/active changes by changing key
   const geoKey = `muni-${choroplethActive ? 'choro-'+choroplethIndicator : 'normal'}`
@@ -299,7 +357,11 @@ export default function MunicipalitiesMap({
             ref={geoRef}
           />
         )}
-        {/* Markers de POIs (substituir o bloco anterior) */}
+
+        {/* Map click handler: somente ativa para criar POI */}
+        <MapClickHandler creatingPoiMode={creatingPoiMode} onMapClick={handleMapClicked} />
+
+        {/* Markers de POIs (seu código mantido) */}
         {normalizedPois && normalizedPois.map(poi => {
           if (poi.__lat == null || poi.__lon == null) return null // pula
           return (
