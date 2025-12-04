@@ -5,28 +5,28 @@ Tests database configuration and session management
 import pytest
 import os
 from unittest.mock import patch, Mock, MagicMock
-from backend.db import get_db, SessionLocal, engine, DATABASE_URL
+from backend.db import get_db, SessionLocal, engine, DB_URL
 
 
 class TestDatabaseConfiguration:
     """Test database configuration"""
     
     def test_database_url_default(self):
-        """Test that DATABASE_URL defaults to sqlite"""
+        """Test that DB_URL defaults to sqlite"""
         with patch.dict(os.environ, {}, clear=True):
             # Re-import to get the default
             from backend import db as db_module
-            default_url = db_module.DATABASE_URL
+            default_url = db_module.DB_URL
             assert "sqlite" in default_url or "db.sqlite" in default_url
     
     def test_database_url_from_env(self):
-        """Test DATABASE_URL is read from environment at module load time"""
-        # Note: DATABASE_URL is evaluated when the module is imported,
+        """Test DB_URL is read from environment at module load time"""
+        # Note: DB_URL is evaluated when the module is imported,
         # so we can't change it after import. This test verifies the behavior.
-        # DATABASE_URL will use the environment variable if set at import time,
+        # DB_URL will use the environment variable if set at import time,
         # otherwise defaults to sqlite
-        assert DATABASE_URL is not None
-        assert isinstance(DATABASE_URL, str)
+        assert DB_URL is not None
+        assert isinstance(DB_URL, str)
     
     def test_sqlite_connect_args(self):
         """Test that SQLite has proper connect_args for single-threaded access"""
@@ -155,19 +155,19 @@ class TestDatabaseConnection:
 
 
 class TestDatabaseURL:
-    """Test DATABASE_URL configuration"""
+    """Test DB_URL configuration"""
     
     def test_database_url_contains_path(self):
-        """Test that DATABASE_URL contains a valid path"""
-        assert DATABASE_URL is not None
-        assert isinstance(DATABASE_URL, str)
+        """Test that DB_URL contains a valid path"""
+        assert DB_URL is not None
+        assert isinstance(DB_URL, str)
         # Should contain either sqlite path or db details
-        assert "sqlite" in DATABASE_URL or "://" in DATABASE_URL
+        assert "sqlite" in DB_URL or "://" in DB_URL
     
     def test_database_url_is_string(self):
-        """Test that DATABASE_URL is a string"""
-        assert isinstance(DATABASE_URL, str)
-        assert len(DATABASE_URL) > 0
+        """Test that DB_URL is a string"""
+        assert isinstance(DB_URL, str)
+        assert len(DB_URL) > 0
 
 
 class TestGetDbIntegration:
@@ -217,7 +217,7 @@ class TestDatabaseErrorHandling:
         """Test behavior with invalid database URL"""
         # This test just verifies the module loads with any URL format
         # Actual connection errors would happen at runtime
-        assert DATABASE_URL is not None
+        assert DB_URL is not None
     
     def test_session_close_idempotent(self):
         """Test that closing a session multiple times doesn't error"""
@@ -237,11 +237,11 @@ class TestConnectArgs:
     
     def test_sqlite_has_check_same_thread_false(self):
         """Test that SQLite connections have check_same_thread=False"""
-        # This is configured in db.py based on DATABASE_URL
+        # This is configured in db.py based on DB_URL
         # We test this indirectly by checking engine configuration
         assert engine is not None
         # For SQLite, check_same_thread should be False
-        if "sqlite" in str(DATABASE_URL).lower():
+        if "sqlite" in str(DB_URL).lower():
             # Engine should be created with connect_args
             assert engine.url.drivername == "sqlite"
     
