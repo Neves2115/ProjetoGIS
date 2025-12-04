@@ -1,4 +1,4 @@
-# GIS — Cobertura de Serviços (Estado de São Paulo)
+# Atlas SP
 
 Página web com mapa interativo para visualizar e analisar cobertura de serviços municipais (IDH, saneamento, renda per capita) e POIs.
 
