@@ -81,6 +81,9 @@ export default function Sidebar({
   mapClickData = null, // { lat, lon, matchedFeature }
   onPoiCreated = null,
   onClosePois = null,
+  // route props
+  routeMode = false,
+  onResetRoute = null,
 }) {
   // ---------- choropleth / filtros ----------
   const [selectedIndicator, setSelectedIndicator] = useState(currentIndicator ?? 'idh')
@@ -158,6 +161,7 @@ function openCreate() {
     setPoiForm({ municipio_ibge: '', tipo: '', nome: '', latitude: '', longitude: '' })
     setCreateError(null)
     setLatLonMismatchWarning(null)
+    onResetRoute && onResetRoute()
   }
 
   async function handleSubmitCreate(e) {
@@ -538,13 +542,14 @@ function openCreate() {
             ) : (
               <div style={card}>
                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12}}>
-                  <strong>POIs Encontrados: {localPois.length}</strong>
+                  <strong>POIs Encontrados: {selectedPoiType ? localPois.filter(p => p.tipo === selectedPoiType).length : localPois.length}</strong>
                   <button 
                     onClick={() => {
                       setLocalPoisMode(false)
                       setLocalPois([])
                       onSetSelectedPoiType && onSetSelectedPoiType('')
                       onClosePois && onClosePois()
+                      onResetRoute && onResetRoute()
                     }}
                     style={{
                       padding: '4px 8px',
@@ -623,6 +628,34 @@ function openCreate() {
               </div>
             )}
           </div>
+
+          {/* Zerar Rota Section */}
+          {routeMode && (
+            <div style={{marginTop: 20, paddingTop: 20, borderTop: '1px solid #ddd'}}>
+              <h3 style={{margin: '0 0 12px 0'}}>🗺️ Rota em progresso</h3>
+              <div style={card}>
+                <button 
+                  onClick={() => onResetRoute && onResetRoute()}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    backgroundColor: '#dc3545',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseEnter={e => e.target.style.backgroundColor = '#c82333'}
+                  onMouseLeave={e => e.target.style.backgroundColor = '#dc3545'}
+                >
+                  ❌ Zerar Rota
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* botões: Comparar */}
           <div style={{marginTop: 20, paddingTop: 20, borderTop: '1px solid #ddd'}}>

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Simples com Rota</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+
+    <style>
+        #map { height: 100vh; }
+        .info-box {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            z-index: 9999;
+            font-family: Arial;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="info-box">
+    <b>Clique no mapa:</b><br>
+    1º clique = origem<br>
+    2º clique = destino<br>
+    A rota será desenhada automaticamente.
+</div>
+
+<div id="map"></div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+
+<script>
+
+    const apiKey = "5b3ce3597851110001cf624844382de8ef884a54805f919a2573dd35";
+
+    let origin = null;
+    let destination = null;
+    let routeLayer = null;
+
+    const map = L.map('map').setView([-23.5505, -46.6333], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+    }).addTo(map);
+
+    map.on("click", function (e) {
+
+        if (!origin) {
+            origin = e.latlng;
+            L.marker(origin).addTo(map).bindPopup("Origem").openPopup();
+            return;
+        }
+
+        if (!destination) {
+            destination = e.latlng;
+            L.marker(destination).addTo(map).bindPopup("Destino").openPopup();
+            getRoute(origin, destination);
+        }
+    });
+
+    function getRoute(start, end) {
+
+        const url = `https://api.openrouteservice.org/v2/directions/foot-walking?api_key=${apiKey}&start=${start.lng},${start.lat}&end=${end.lng},${end.lat}`;
+
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+
+                const coords = data.features[0].geometry.coordinates
+                    .map(c => [c[1], c[0]]); // inverte lng/lat → lat/lng
+
+                if (routeLayer) map.removeLayer(routeLayer);
+
+                routeLayer = L.polyline(coords, {
+                    color: "blue",
+                    weight: 5,
+                }).addTo(map);
+
+                map.fitBounds(routeLayer.getBounds());
+            });
+    }
+
+</script>
+
+</body>
+</html>

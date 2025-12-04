@@ -6,7 +6,7 @@ import React from 'react'
  * 1. { feature, onClose } - feature com properties (compatível com GeoJSON)
  * 2. { poi, onClose } - objeto POI direto do banco de dados
  */
-export default function POIDetail({ feature, poi, onClose }) {
+export default function POIDetail({ feature, poi, onClose, onStartRoute }) {
   // Compatibilidade: se recebeu feature (GeoJSON), extrair dados
   const poiData = poi || (feature?.properties ? {
     id: feature.properties.id,
@@ -178,25 +178,48 @@ export default function POIDetail({ feature, poi, onClose }) {
             Fechar
           </button>
           {poiData.latitude && poiData.longitude && (
-            <button
-              onClick={() => {
-                const geoUrl = `https://www.google.com/maps/@${poiData.latitude},${poiData.longitude},18z`
-                window.open(geoUrl, '_blank')
-              }}
-              style={{
-                flex: 1,
-                padding: '10px 16px',
-                backgroundColor: '#0b5ed7',
-                border: 'none',
-                borderRadius: 6,
-                cursor: 'pointer',
-                fontSize: 14,
-                fontWeight: 600,
-                color: 'white',
-              }}
-            >
-              Google Maps
-            </button>
+            <>
+              <button
+                onClick={() => {
+                  if (onStartRoute) {
+                    onStartRoute(poiData)
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px 16px',
+                  backgroundColor: '#28a745',
+                  border: 'none',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: 'white',
+                }}
+                title="Criar rota a partir deste POI"
+              >
+                Rota
+              </button>
+              <button
+                onClick={() => {
+                  const geoUrl = `https://www.google.com/maps/@${poiData.latitude},${poiData.longitude},18z`
+                  window.open(geoUrl, '_blank')
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px 16px',
+                  backgroundColor: '#0b5ed7',
+                  border: 'none',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: 'white',
+                }}
+              >
+                Maps
+              </button>
+            </>
           )}
         </div>
       </div>

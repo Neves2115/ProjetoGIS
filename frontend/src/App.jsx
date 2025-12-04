@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import MunicipalitiesMap from './components/MapView'
 import Sidebar from './components/Sidebar'
 import POIDetail from './components/POIDetail'
+import RouteModal from './components/RouteModal'
 import { fetchIndicadorByIbge, fetchAllIndicadores, fetchPOIsByMunicipio, fetchPOIsByBbox } from './api/api'
 
 export default function App(){
@@ -25,8 +26,21 @@ export default function App(){
   const [sidebarWidth, setSidebarWidth] = useState(330)
 
   // ----- NOVOS: criar POI -----
-  const [creatingPoiMode, setCreatingPoiMode] = useState(false) // quando true, clique no mapa preenche lat/lon
-  const [mapClickData, setMapClickData] = useState(null) // { lat, lon, matchedFeature }
+  const [creatingPoiMode, setCreatingPoiMode] = useState(false)
+  const [mapClickData, setMapClickData] = useState(null)
+
+  // ----- NOVOS: gerar rotas -----
+  const [routeMode, setRouteMode] = useState(false) // true quando aguardando clique para destino
+  const [routeOrigin, setRouteOrigin] = useState(null) // POI selecionado como origem
+  const [routeSummary, setRouteSummary] = useState(null) // Resumo da rota (distância, tempos)
+
+  // Handler para zerar rota
+  function handleResetRoute() {
+    setRouteMode(false)
+    setRouteOrigin(null)
+    setRouteSummary(null)
+    setMapClickData(null)
+  }
 
   async function handleSelectMunicipio(props){
     setChoroplethActive(false)
@@ -52,6 +66,7 @@ export default function App(){
     setPoisMode(false)
     setPois([])
     setSelectedPOI(null)
+    handleResetRoute()
   }
 
   async function startChoropleth(indKey = 'idh'){
@@ -96,7 +111,70 @@ export default function App(){
 
   // recebe do MunicipalitiesMap: { lat, lon, matchedFeature }
   function handleMapClick(payload) {
-    setMapClickData(payload)
+    // Se estamos em modo rota, gerar rota e sair do modo
+    if (routeMode && routeOrigin) {
+      generateRoute(routeOrigin, payload)
+      setRouteMode(false)
+      setRouteOrigin(null)
+    } else {
+      // Modo normal: criar POI
+      setMapClickData(payload)
+    }
+  }
+
+  async function generateRoute(origin, destination) {
+    try {
+      const apiKey = "5b3ce3597851110001cf624844382de8ef884a54805f919a2573dd35"
+      const url = `https://api.openrouteservice.org/v2/directions/foot-walking?api_key=${apiKey}&start=${destination.lon},${destination.lat}&end=${origin.longitude},${origin.latitude}`
+      
+      const response = await fetch(url)
+      if (!response.ok) throw new Error('Erro na API')
+      
+      const data = await response.json()
+      const coords = data.features[0].geometry.coordinates.map(c => [c[1], c[0]])
+      
+      // Extrair distância (em metros) e duração (em segundos)
+      const distance = data.features[0].properties.segments[0].distance || 0 // metros
+      const duration = data.features[0].properties.segments[0].duration || 0 // segundos
+      
+      // Calcular tempos aproximados
+      // A pé: 1.4 m/s (5 km/h) - velocidade média de caminhada
+      // Carro: 15 m/s (54 km/h) - velocidade média urbana
+      const walkingTime = Math.round(distance / 1.4) // em segundos
+      const drivingTime = Math.round(distance / 15) // em segundos
+      
+      // Converter para minutos/horas
+      const formatTime = (seconds) => {
+        const hours = Math.floor(seconds / 3600)
+        const minutes = Math.floor((seconds % 3600) / 60)
+        if (hours > 0) {
+          return `${hours}h ${minutes}min`
+        }
+        return `${minutes}min`
+      }
+      
+      // Emitir evento para MapView desenhar
+      setMapClickData({
+        lat: destination.lat,
+        lon: destination.lon,
+        routeCoords: coords,
+        routeOrigin: origin,
+        isRoute: true
+      })
+      
+      // Mostrar resumo da rota
+      setRouteSummary({
+        distance: (distance / 1000).toFixed(2), // em km
+        walkingTime: formatTime(walkingTime),
+        drivingTime: formatTime(drivingTime),
+        originName: origin.nome,
+        destinationLat: destination.lat,
+        destinationLon: destination.lon
+      })
+    } catch (error) {
+      console.error('Erro ao gerar rota:', error)
+      alert('Erro ao gerar rota')
+    }
   }
 
   // POI Filtering Functions
@@ -142,6 +220,13 @@ export default function App(){
 
   function handleClosePOIDetail() {
     setSelectedPOI(null)
+  }
+
+  function handleStartRoute(poiData) {
+    // Fechar modal e ativar modo rota
+    setSelectedPOI(null)
+    setRouteMode(true)
+    setRouteOrigin(poiData)
   }
 
   const handleMouseDown = (e) => {
@@ -208,6 +293,10 @@ export default function App(){
           mapClickData={mapClickData}
           onPoiCreated={handlePoiCreated}
           onClosePois={closePois}
+          
+          // route props
+          routeMode={routeMode}
+          onResetRoute={handleResetRoute}
         />
         {/* Resize Handle */}
         <div
@@ -241,12 +330,29 @@ export default function App(){
           indicatorsMap={indicatorsMap}
           pois={poisMode ? (selectedPoiType ? pois.filter(p => p.tipo === selectedPoiType) : pois) : []}
           onSelectPOI={handleSelectPOI}
-
-          // novos props
           creatingPoiMode={creatingPoiMode}
           onMapClick={handleMapClick}
+          routeMode={routeMode}
+          routeData={mapClickData?.isRoute ? mapClickData : null}
         />
-        {selectedPOI && <POIDetail poi={selectedPOI} onClose={handleClosePOIDetail} />}
+        {selectedPOI && <POIDetail poi={selectedPOI} onClose={handleClosePOIDetail} onStartRoute={handleStartRoute} />}
+        {routeSummary && <RouteModal routeSummary={routeSummary} onClose={() => setRouteSummary(null)} />}
+        {routeMode && (
+          <div style={{
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            backgroundColor: '#fff3cd',
+            border: '1px solid #ffc107',
+            borderRadius: '8px',
+            padding: '12px 16px',
+            fontSize: '14px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            zIndex: 9999
+          }}>
+            🗺️ Clique no mapa para selecionar o ponto de destino
+          </div>
+        )}
       </div>
     </div>
   )

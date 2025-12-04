@@ -1,7 +1,7 @@
 // MunicipalitiesMap.jsx
 import React, { useEffect, useRef, useState } from 'react'
 import { MapContainer, TileLayer, GeoJSON, useMap, Marker, Popup, useMapEvents } from 'react-leaflet'
-import createColorizer from '../utils/createColorizer'   // ajuste caminho conforme sua estrutura
+import createColorizer from '../utils/createColorizer'
 import { fetchMunicipalitiesGeoJSON } from '../api/api'
 import L from 'leaflet'
 
@@ -56,13 +56,11 @@ function findFeatureAtLatLng(gjson, lon, lat) {
   return null
 }
 
-function MapClickHandler({ onMapClick, creatingPoiMode }) {
+function MapClickHandler({ onMapClick, creatingPoiMode, routeMode }) {
   useMapEvents({
     click(e) {
-      if (!creatingPoiMode) return
+      if (!creatingPoiMode && !routeMode) return
       const { lat, lng } = e.latlng
-      // tentar achar feature localmente — precisamos do gjson; emitiremos lat/lon e deixaremos o pai decidir
-      // NOTA: não temos gjson aqui; vamos delegar para prop onMapClick para o componente pai
       onMapClick && onMapClick({ lat, lon: lng })
     }
   })
@@ -135,6 +133,14 @@ function FitToGeoJSON({ geojson }) {
   return null
 }
 
+function StoreMapRef({ mapRef }) {
+  const map = useMap()
+  useEffect(() => {
+    mapRef.current = map
+  }, [map])
+  return null
+}
+
 
 // helper to format indicator values for tooltip
 function formatValueForIndicator(value, indicatorKey) {
@@ -159,25 +165,89 @@ export default function MunicipalitiesMap({
   indicatorsMap = {},
   pois = [],
   onSelectPOI = null,
-  // novos props
   creatingPoiMode = false,
-  onMapClick = null
+  onMapClick = null,
+  routeMode = false,
+  routeData = null
 }) {
   const [gjson, setGjson] = useState(null)
   const [selectedCode, setSelectedCode] = useState(null)
   const [selectedPOI, setSelectedPOI] = useState(null)
+  const [routeLayer, setRouteLayer] = useState(null)
+  const [routeMarkers, setRouteMarkers] = useState([])
+  const mapRef = useRef(null)
   const geoRef = useRef(null)
 
   useEffect(() => {
     fetchMunicipalitiesGeoJSON().then(setGjson).catch(console.error)
   }, [])
 
+  // Desenhar rota quando receber dados
+  useEffect(() => {
+    if (!routeData || !mapRef.current) return
+
+    try {
+      // Limpar rota anterior
+      if (routeLayer && mapRef.current.hasLayer(routeLayer)) {
+        mapRef.current.removeLayer(routeLayer)
+      }
+      routeMarkers.forEach(marker => {
+        if (mapRef.current.hasLayer(marker)) {
+          mapRef.current.removeLayer(marker)
+        }
+      })
+
+      // Desenhar nova polyline
+      const polyline = L.polyline(routeData.routeCoords, {
+        color: '#0b5ed7',
+        weight: 5,
+        opacity: 0.8,
+        lineCap: 'round',
+        lineJoin: 'round'
+      }).addTo(mapRef.current)
+      setRouteLayer(polyline)
+
+      // Marcadores
+      const markers = []
+      
+      const originMarker = L.marker(
+        [routeData.routeOrigin.latitude, routeData.routeOrigin.longitude],
+        {
+          icon: L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+          })
+        }
+      ).bindPopup(routeData.routeOrigin.nome).addTo(mapRef.current)
+      markers.push(originMarker)
+
+      const destMarker = L.marker([routeData.lat, routeData.lon], {
+        icon: L.icon({
+          iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34],
+          shadowSize: [41, 41]
+        })
+      }).bindPopup('Destino').addTo(mapRef.current)
+      markers.push(destMarker)
+
+      setRouteMarkers(markers)
+      mapRef.current.fitBounds(polyline.getBounds(), { padding: [50, 50] })
+    } catch (error) {
+      console.error('Erro ao desenhar rota:', error)
+    }
+  }, [routeData])
+
   function handleMapClicked(payload) {
-      // payload: { lat, lon } vindo do MapClickHandler
       const { lat, lon } = payload
       let matchedFeature = null
       try {
-        // tente identificar entre as features carregadas
         matchedFeature = findFeatureAtLatLng(gjson, lon, lat)
       } catch (err) {
         console.warn('Erro ao verificar feature no clique', err)
@@ -358,8 +428,11 @@ export default function MunicipalitiesMap({
           />
         )}
 
-        {/* Map click handler: somente ativa para criar POI */}
-        <MapClickHandler creatingPoiMode={creatingPoiMode} onMapClick={handleMapClicked} />
+        {/* Map click handler: ativa para criar POI ou gerar rota */}
+        <MapClickHandler creatingPoiMode={creatingPoiMode} routeMode={routeMode} onMapClick={handleMapClicked} />
+
+        {/* Capturar referência do mapa */}
+        <StoreMapRef mapRef={mapRef} />
 
         {/* Markers de POIs (seu código mantido) */}
         {normalizedPois && normalizedPois.map(poi => {
