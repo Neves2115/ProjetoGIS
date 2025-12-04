@@ -44,42 +44,37 @@ export async function fetchAllIndicadores() {
 // ===================== POI FILTERING =====================
 
 export async function fetchPOITypes() {
-  /**
-   * Retorna lista de tipos/categorias de POIs disponíveis.
-   * Útil para popular dropdown de filtro.
-   */
   const url = `${API_BASE}/pois/tipos`
   const res = await fetch(url)
   if (!res.ok) throw new Error('Erro ao buscar tipos de POIs')
-  return res.json() // { tipos: ['hospital', 'school', 'park', ...] }
+  return res.json() // { tipos: [...] }
 }
 
-export async function fetchPOIsByMunicipio(ibgeCode) {
-  /**
-   * Filtra POIs por município (usando código IBGE).
-   */
-  const url = `${API_BASE}/pois/municipio/${encodeURIComponent(ibgeCode)}`
+/**
+ * Filtra POIs por município (usando código IBGE).
+ * limit padrão reduzido para 500 para evitar sobrecarga (ajuste conforme precisar).
+ */
+export async function fetchPOIsByMunicipio(ibgeCode, limit = 500) {
+  const params = new URLSearchParams()
+  if (limit) params.set('limit', String(limit))
+  const url = `${API_BASE}/pois/municipio/${encodeURIComponent(ibgeCode)}?${params.toString()}`
   const res = await fetch(url)
   if (!res.ok) throw new Error('Erro ao buscar POIs do município')
   return res.json() // array de POIs
 }
 
-export async function fetchPOIsByBbox(minLon, minLat, maxLon, maxLat, tipo = null) {
-  /**
-   * Filtra POIs por bounding box (e opcionalmente por tipo).
-   * @param {number} minLon - longitude mínima
-   * @param {number} minLat - latitude mínima
-   * @param {number} maxLon - longitude máxima
-   * @param {number} maxLat - latitude máxima
-   * @param {string} tipo - tipo/categoria opcional (ex: 'hospital')
-   */
+/**
+ * Filtra POIs por bbox (minLon,minLat,maxLon,maxLat) e opcionalmente por tipo.
+ */
+export async function fetchPOIsByBbox(minLon, minLat, maxLon, maxLat, tipo = null, limit = 500) {
   const bboxStr = `${minLon},${minLat},${maxLon},${maxLat}`
   const params = new URLSearchParams()
   params.set('bbox', bboxStr)
   if (tipo) params.set('tipo', tipo)
-  
+  if (limit) params.set('limit', String(limit))
+
   const url = `${API_BASE}/pois/bbox?${params.toString()}`
   const res = await fetch(url)
   if (!res.ok) throw new Error('Erro ao buscar POIs na área')
-  return res.json() // array de POIs
+  return res.json()
 }

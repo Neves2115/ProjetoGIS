@@ -230,9 +230,9 @@ export default function Sidebar({
 
   const tooltipStyle = {
     position: 'absolute',
-    right: 0,
+    right: -32,
     top: '28px',
-    width: 300,
+    width: 200,
     background: 'rgba(255,255,255,0.98)',
     backdropFilter: 'blur(6px)',
     color: '#222',

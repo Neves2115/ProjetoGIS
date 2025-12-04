@@ -247,6 +247,44 @@ export default function MunicipalitiesMap({
 
   // force GeoJSON rerender when choroplethIndicator/active changes by changing key
   const geoKey = `muni-${choroplethActive ? 'choro-'+choroplethIndicator : 'normal'}`
+  // normaliza diferentes formatos de POI (latitude/longitude | lat/lon | geometry.coordinates | location.coordinates)
+  const normalizedPois = React.useMemo(() => {
+    if (!Array.isArray(pois)) return []
+    return pois.map(poi => {
+      // várias possibilidades comuns
+      let lat = poi.latitude ?? poi.lat ?? poi.y ?? null
+      let lon = poi.longitude ?? poi.lon ?? poi.x ?? null
+
+      // GeoJSON style: geometry.coordinates = [lon, lat]
+      if ((lat == null || lon == null) && poi.geometry && Array.isArray(poi.geometry.coordinates)) {
+        lon = lon ?? poi.geometry.coordinates[0]
+        lat = lat ?? poi.geometry.coordinates[1]
+      }
+
+      // alternativa nome/location: { location: { coordinates: [lon, lat] } }
+      if ((lat == null || lon == null) && poi.location && Array.isArray(poi.location.coordinates)) {
+        lon = lon ?? poi.location.coordinates[0]
+        lat = lat ?? poi.location.coordinates[1]
+      }
+
+      // tentar converter strings para número
+      const nLat = lat != null ? Number(lat) : NaN
+      const nLon = lon != null ? Number(lon) : NaN
+
+      return { ...poi, __lat: Number.isFinite(nLat) ? nLat : null, __lon: Number.isFinite(nLon) ? nLon : null }
+    })
+  }, [pois])
+
+  // contagem para debug (você pode remover console.log em produção)
+  useEffect(() => {
+    const total = Array.isArray(pois) ? pois.length : 0
+    const valid = normalizedPois.filter(p => p.__lat != null && p.__lon != null).length
+    const invalid = total - valid
+    if (total > 0) {
+      console.info(`[MapView] POIs recebidos: ${total} — válidos: ${valid} — inválidos (ignorados): ${invalid}`)
+    }
+  }, [pois, normalizedPois])
+
 
   return (
     <div style={{height:'100%'}}>
@@ -261,26 +299,28 @@ export default function MunicipalitiesMap({
             ref={geoRef}
           />
         )}
-        
-        {/* Markers de POIs */}
-        {pois && pois.map(poi => (
-          <Marker
-            key={poi.id}
-            position={[poi.latitude, poi.longitude]}
-            icon={getPoiIcon(poi.tipo)}
-            eventHandlers={{
-              click: () => {
-                setSelectedPOI(poi)
-                onSelectPOI && onSelectPOI(poi)
-              }
-            }}
-          >
-            <Popup>
-              <div style={{fontWeight: 600}}>{poi.nome}</div>
-              <div style={{fontSize: 12, color: '#666'}}>{poi.tipo}</div>
-            </Popup>
-          </Marker>
-        ))}
+        {/* Markers de POIs (substituir o bloco anterior) */}
+        {normalizedPois && normalizedPois.map(poi => {
+          if (poi.__lat == null || poi.__lon == null) return null // pula
+          return (
+            <Marker
+              key={poi.id ?? `${poi.__lat}-${poi.__lon}-${Math.random()}`}
+              position={[poi.__lat, poi.__lon]}
+              icon={getPoiIcon(poi.tipo)}
+              eventHandlers={{
+                click: () => {
+                  setSelectedPOI(poi)
+                  onSelectPOI && onSelectPOI(poi)
+                }
+              }}
+            >
+              <Popup>
+                <div style={{fontWeight: 600}}>{poi.nome ?? poi.name ?? 'POI'}</div>
+                <div style={{fontSize: 12, color: '#666'}}>{poi.tipo ?? poi.category ?? ''}</div>
+              </Popup>
+            </Marker>
+          )
+        })}
 
         <FitToGeoJSON geojson={gjson} />
         <Legend />

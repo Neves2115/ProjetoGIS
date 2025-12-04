@@ -210,74 +210,116 @@ def load_indicadores(gdf_munis):
     session.close()
     print(f"Indicadores inseridos: {inserted}")
 
-# ---------- 3) POIs ----------
-def load_pois(gdf_munis):
-    print("Lendo POIs:", POIS_FILE)
-    gdf = gpd.read_file(POIS_FILE)
-    gdf = gdf.to_crs(epsg=4326)
-    # extrair ponto: se geometry for Point, ok. Se forem Ways com center, geopandas pode já ter geometry como point.
-    # criar colunas padronizadas
-    def pick_tipo(props):
-        for k in ('amenity','leisure','shop','tourism','healthcare'):
-            if k in props and props[k]:
-                return props[k]
-        return None
+import math
+from sqlalchemy import delete
 
+# -- substitua a função load_pois existente por esta --
+def load_pois(gdf_munis, pois_file=POIS_FILE, batch_size=1000):
+    print("Lendo POIs:", pois_file)
+    # 1) ler geojson (pode ser grande)
+    gdf = gpd.read_file(pois_file)
+    gdf = gdf.to_crs(epsg=4326)
+
+    # 2) construir dataframe com campos padronizados (tratando id/@id)
     rows = []
     for idx, row in gdf.iterrows():
-        props = row.to_dict()
-        # geometry:
+        # row pode ter colunas extra; também há 'properties' flattened
+        props = {}
+        try:
+            props = dict(row)
+        except Exception:
+            props = {}
+
+        # geometry -> lat/lon
         geom = row.geometry
         if geom is None:
             continue
         if geom.geom_type == 'Point':
             lon, lat = geom.x, geom.y
         else:
-            # se for polygon/point-like, pegar centroid
             c = geom.centroid
             lon, lat = c.x, c.y
+
+        # pegar nome / tipo (várias chaves possíveis)
+        nome = props.get('name') or props.get('nome') or props.get('Name') or None
+
         tipo = None
-        # props pode ter keys like 'amenity' etc; procurar nelas
-        for k in ('amenity','leisure','shop','tourism','healthcare'):
-            if k in row and pd.notna(row[k]):
-                tipo = row[k]
+        for k in ('amenity','leisure','shop','tourism','healthcare','office','craft'):
+            if k in props and props.get(k) and not pd.isna(props.get(k)):
+                tipo = props.get(k)
                 break
-        # fallback: procurar em properties dict (caso o geojson tenha nested props)
-        if not tipo and isinstance(props, dict):
-            for k in ('amenity','leisure','shop','tourism','healthcare'):
-                if props.get(k):
-                    tipo = props.get(k); break
+        # fallback em 'properties' se presente
+        if not tipo and 'properties' in props and isinstance(props['properties'], dict):
+            for k in ('amenity','leisure','shop','tourism','healthcare','office','craft'):
+                if props['properties'].get(k):
+                    tipo = props['properties'].get(k); break
 
-        nome = props.get('name') or props.get('nome') or None
-        # construir endereco a partir de addr:street + addr:housenumber se existirem
-        endereco_parts = []
-        if props.get('addr:street'): endereco_parts.append(str(props.get('addr:street')))
-        if props.get('addr:housenumber'): endereco_parts.append(str(props.get('addr:housenumber')))
-        endereco = ", ".join(endereco_parts) if endereco_parts else None
-        descricao = props.get('description') or None
-        osm_id = props.get('id') or props.get('element') or None
+        # osm id heurístico (top-level 'id', or properties '@id', or props['@id'], or 'element')
+        osm_id = None
+        for cand in ('id','@id','element','osm_id','@osm_id'):
+            if cand in props and props.get(cand) and not pd.isna(props.get(cand)):
+                osm_id = str(props.get(cand))
+                break
+        # sometimes properties nested
+        if not osm_id and 'properties' in props and isinstance(props['properties'], dict):
+            for cand in ('@id','id','element','osm_id'):
+                if props['properties'].get(cand):
+                    osm_id = str(props['properties'].get(cand)); break
 
-        rows.append({'osm_id': osm_id, 'nome': nome, 'tipo': tipo, 'longitude': lon, 'latitude': lat, 'endereco': endereco, 'descricao': descricao})
+        # normalize osm_id (extract numeric if relation/xxxx)
+        if osm_id:
+            m = re.search(r'(\d+)$', osm_id)
+            if m:
+                osm_id = m.group(1)
+
+        # sanity: skip invalid coordinates (nan, inf)
+        if lat is None or lon is None or math.isnan(lat) or math.isnan(lon) or math.isinf(lat) or math.isinf(lon):
+            continue
+
+        rows.append({
+            'osm_id': osm_id,
+            'nome': nome,
+            'tipo': tipo,
+            'longitude': float(lon),
+            'latitude': float(lat)
+        })
+
+    if not rows:
+        print("Nenhum POI encontrado no arquivo.")
+        return
 
     df_p = pd.DataFrame(rows)
-    # spatial join: associar municipio via ponto dentro do polígono
-    pts_gdf = gpd.GeoDataFrame(df_p, geometry=[Point(xy) for xy in zip(df_p.longitude, df_p.latitude)], crs="EPSG:4326")
-    # usar gdf_munis (que já tem geometry)
-    muni_polys = gdf_munis[['ibge_code','geometry']].copy()
-    muni_polys = gpd.GeoDataFrame(muni_polys, geometry=muni_polys.geometry, crs="EPSG:4326")
+    pts_gdf = gpd.GeoDataFrame(df_p,
+                               geometry=[Point(xy) for xy in zip(df_p.longitude, df_p.latitude)],
+                               crs="EPSG:4326")
 
-    joined = gpd.sjoin(pts_gdf, muni_polys, how='left', predicate='within')  # column 'ibge_code' joined
-    # carregar mapping ibge_code -> municipio_id do DB
+    # 3) associar município via spatial join
+    # gdf_munis deve ser GeoDataFrame com coluna 'ibge_code' e geometry
+    muni_polys = gdf_munis[['ibge_code','geometry']].copy()
+    if not isinstance(muni_polys, gpd.GeoDataFrame):
+        muni_polys = gpd.GeoDataFrame(muni_polys, geometry=muni_polys.geometry, crs="EPSG:4326")
+
+    joined = gpd.sjoin(pts_gdf, muni_polys, how='left', predicate='within')
+
+    # 4) carregar mapping ibge_code -> municipio_id do DB
     session = Session()
     db_munis = session.query(Municipio).all()
     ibge_to_id = {m.ibge_code: m.id for m in db_munis}
     session.close()
 
-    # preparar inserção na tabela POI
+    # 5) opcional: apagar POIs existentes (como você quer reinserir)
     session = Session()
+    # Use delete() para compatibilidade
+    session.execute(delete(POI))
+    session.commit()
+    print("POIs antigos removidos.")
+
+    # 6) inserir em batches
     inserted = 0
+    batch_objs = []
     for _, r in joined.iterrows():
         municipio_id = ibge_to_id.get(str(r.get('ibge_code'))) if r.get('ibge_code') is not None else None
+        # construir objeto POI
         poi = POI(
             municipio_id = municipio_id,
             tipo = r.get('tipo') or None,
@@ -285,19 +327,31 @@ def load_pois(gdf_munis):
             latitude = float(r['latitude']),
             longitude = float(r['longitude']),
         )
-        session.add(poi)
-        inserted += 1
-    session.commit()
+        batch_objs.append(poi)
+        if len(batch_objs) >= batch_size:
+            session.bulk_save_objects(batch_objs)
+            session.commit()
+            inserted += len(batch_objs)
+            batch_objs = []
+            print(f"Inserted {inserted} POIs...")
+
+    # final batch
+    if batch_objs:
+        session.bulk_save_objects(batch_objs)
+        session.commit()
+        inserted += len(batch_objs)
+
     session.close()
     print(f"POIs inseridos no DB: {inserted}")
 
-# ---------- main ----------
-def main():
+# -- no final do arquivo, permitir rodar só os POIs --
+if __name__ == "__main__":
+    import sys
     print("=== ETL iniciado ===")
     gdf_munis = load_municipios()
-    print(gdf_munis.head())
-    load_indicadores(gdf_munis)
-    load_pois(gdf_munis)
+    if len(sys.argv) > 1 and sys.argv[1] == "--pois-only":
+        load_pois(gdf_munis, pois_file=POIS_FILE)
+    else:
+        load_indicadores(gdf_munis)
+        load_pois(gdf_munis, pois_file=POIS_FILE)
     print("=== ETL finalizado ===")
-if __name__ == "__main__":
-    main()

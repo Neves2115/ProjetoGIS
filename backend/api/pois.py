@@ -25,7 +25,7 @@ def get_pois_by_type(tipo: str, skip: int = 0, limit: int = 200, db: Session = D
     return crud.list_pois_by_type(db, tipo=tipo, skip=skip, limit=limit)
 
 @router.get("/municipio/{ibge_code}", response_model=List[schemas.POIOut])
-def get_pois_by_municipio(ibge_code: str, skip: int = 0, limit: int = 500, db: Session = Depends(get_db)):
+def get_pois_by_municipio(ibge_code: str, skip: int = 0, limit: int = 2000, db: Session = Depends(get_db)):
     """
     Filtra POIs por município usando o código IBGE.
     Retorna todos os POIs cadastrados naquele município.
