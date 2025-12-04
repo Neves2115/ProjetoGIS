@@ -154,6 +154,7 @@ function formatValueForIndicator(value, indicatorKey) {
 
 export default function MunicipalitiesMap({
   onSelectMunicipio,
+  selectedMunicipio,
   choroplethActive = false,
   choroplethIndicator = 'idh',
   indicatorsMap = {},
@@ -167,6 +168,63 @@ export default function MunicipalitiesMap({
   const [selectedCode, setSelectedCode] = useState(null)
   const [selectedPOI, setSelectedPOI] = useState(null)
   const geoRef = useRef(null)
+
+  useEffect(() => {
+    const code = String(selectedMunicipio?.ibge_code ?? selectedMunicipio?.id ?? '').trim() || null
+    setSelectedCode(code)
+  }, [selectedMunicipio])
+
+  // reaplica estilo em todas as layers sempre que selectedCode (ou dados relevantes) mudarem
+  useEffect(() => {
+    if (!geoRef.current || !gjson) return
+    try {
+      // se o ref for um L.GeoJSON com eachLayer -> iterar explicitamente
+      if (typeof geoRef.current.eachLayer === 'function') {
+        geoRef.current.eachLayer(layer => {
+          // algumas layers podem não ter feature (ex.: tile layers) - proteger
+          const feat = layer.feature
+          if (!feat || !feat.properties) return
+
+          const code = String(feat.properties?.ibge_code ?? feat.properties?.id ?? '').trim()
+          const isSelected = code && selectedCode && code === selectedCode
+
+          const styleObj = {
+            color: "#333",
+            weight: isSelected ? 3 : 1,
+            fillColor: getFillColorForFeature(feat),
+            fillOpacity: choroplethActive ? 0.9 : (isSelected ? 0.2 : 0.05),
+            dashArray: isSelected ? '' : '1'
+          }
+
+          // aplicar estilo na layer individual
+          try { layer.setStyle(styleObj) } catch (err) { /* some layers might not accept setStyle */ }
+
+          // trazer para frente a selecionada para garantir contorno visível
+          if (isSelected && typeof layer.bringToFront === 'function') {
+            try { layer.bringToFront() } catch {}
+          }
+        })
+        return
+      }
+
+      // fallback: se houver setStyle direto no ref (aceita função ou objeto)
+      if (typeof geoRef.current.setStyle === 'function') {
+        geoRef.current.setStyle(feature => {
+          const code = String(feature.properties?.ibge_code ?? feature.properties?.id ?? '').trim()
+          const isSelected = code && selectedCode && code === selectedCode
+          return {
+            color: "#333",
+            weight: isSelected ? 3 : 1,
+            fillColor: getFillColorForFeature(feature),
+            fillOpacity: choroplethActive ? 0.9 : (isSelected ? 0.2 : 0.05),
+            dashArray: isSelected ? '' : '1'
+          }
+        })
+      }
+    } catch (err) {
+      console.warn('Erro ao aplicar estilo no GeoJSON/layes:', err)
+    }
+  }, [selectedCode, choroplethActive, choroplethIndicator, indicatorsMap, gjson])
 
   useEffect(() => {
     fetchMunicipalitiesGeoJSON().then(setGjson).catch(console.error)
@@ -273,11 +331,13 @@ export default function MunicipalitiesMap({
         resetHighlight(e)
       },
       click: () => {
-        const code = String(feature.properties?.ibge_code ?? '').trim()
+        const code = String(feature.properties?.ibge_code ?? feature.properties?.id ?? '').trim()
+        // otimista: já marca a seleção localmente
         setSelectedCode(code)
-        setSelectedPOI(null) // fecha detalhe POI ao selecionar município
+        setSelectedPOI(null)
+        // avisa o pai (que também vai setar selectedMunicipio)
         onSelectMunicipio && onSelectMunicipio(feature.properties)
-        try { geoRef.current.setStyle(style) } catch {}
+        // não chamamos geoRef.current.setStyle aqui — a effect reagirá ao selectedCode
       }
     })
   }
