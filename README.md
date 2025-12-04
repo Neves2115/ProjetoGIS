@@ -1,4 +1,4 @@
-# Atlas SP
+# Atlas SP    ![Testes](https://github.com/Neves2115/calcaula4/actions/workflows/testecalc.yaml/badge.svg)
 
 Página web com mapa interativo para visualizar e analisar cobertura de serviços municipais (IDH, saneamento, renda per capita) e POIs.
 
