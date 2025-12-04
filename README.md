@@ -21,7 +21,6 @@ https://docs.google.com/spreadsheets/d/17pi-H6D0zx4zMSTkdx5EQ3ka0oQjDX5rS6DsCgdo
 
 ## Histórias de usuário
 
-asdasdasdasdasdasdasd
 Ver mapa coroplético por indicador
 
 Como usuário quero ver o mapa dos municípios colorido por um indicador (ex.: IDH) para identificar padrões; critério: ao selecionar o indicador o mapa atualiza a cor dos polígonos com legenda.
