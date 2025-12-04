@@ -330,6 +330,7 @@ export default function App(){
           indicatorsMap={indicatorsMap}
           pois={poisMode ? (selectedPoiType ? pois.filter(p => p.tipo === selectedPoiType) : pois) : []}
           onSelectPOI={handleSelectPOI}
+          selectedMunicipio={selectedMunicipio}
 
           // novos props
           creatingPoiMode={creatingPoiMode}
