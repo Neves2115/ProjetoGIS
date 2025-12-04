@@ -1,4 +1,4 @@
-# main.py
+# backend/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.api import municipios, indicadores, pois

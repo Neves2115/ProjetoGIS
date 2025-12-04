@@ -1,8 +1,16 @@
-# Atlas SP
+# Atlas SP    ![Testes](https://github.com/Neves2115/calcaula4/actions/workflows/testecalc.yaml/badge.svg)
 
 Página web com mapa interativo para visualizar e analisar cobertura de serviços municipais (IDH, saneamento, renda per capita) e POIs.
 
 
+## Como rodar localmente 
+1) Clonar o repositório
+2) Instalar requirements: pip install -r requirements.txt
+3) Rodar backend: uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+4) Rodar frontend: cd frontend -> npm install -> npm run dev
+5) Abrir no navegador: http://localhost:5173/
+
+   
 ## Dados
 
 Granularidade: municípios do Estado de SP
@@ -10,9 +18,7 @@ Granularidade: municípios do Estado de SP
 POIs: Delegacias, postos de saúde, escolas, parques e centros sociais
 
 Indicadores: IDH, renda per capita, saneamento
-https://repositorio.seade.gov.br/dataset/saneamento-estado-de-sao-paulo-e-brasil/resource/88803cbd-1c5b-4808-b2d5-2a3550b888b8?inner_span=True
-https://docs.google.com/spreadsheets/d/13DOOnszKTExaCMpp5ujoDnbwQOFPD1Yji11tcI0QQmE/edit?gid=0#gid=0
-https://docs.google.com/spreadsheets/d/17pi-H6D0zx4zMSTkdx5EQ3ka0oQjDX5rS6DsCgdohOE/edit?gid=1821937161#gid=1821937161
+
 ### Diagrama Entidade - Relacionamento
 <img width="471" height="451" alt="image" src="https://github.com/user-attachments/assets/0651f8a4-3239-4201-b704-5c5bdc475b14" />
 
