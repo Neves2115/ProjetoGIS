@@ -18,14 +18,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install coverage codecov
+          pip install coverage
 
       - name: Rodar testes com coverage
         run: |
           coverage run -m unittest discover -s tests -p "test*.py"
-          coverage xml
-
-      - name: Fazer upload para Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          files: coverage.xml
+          coverage report --fail-under=70
