@@ -178,6 +178,8 @@ export default function MunicipalitiesMap({
   const [routeMarkers, setRouteMarkers] = useState([])
   const mapRef = useRef(null)
   const geoRef = useRef(null)
+  const routeLayerRef = useRef(null)
+  const routeMarkersRef = useRef([])
 
   useEffect(() => {
     const code = String(selectedMunicipio?.ibge_code ?? selectedMunicipio?.id ?? '').trim() || null
@@ -240,22 +242,38 @@ export default function MunicipalitiesMap({
     fetchMunicipalitiesGeoJSON().then(setGjson).catch(console.error)
   }, [])
 
-  // Desenhar rota quando receber dados
   useEffect(() => {
-    if (!routeData || !mapRef.current) return
+    if (!mapRef.current) return
+
+    // função utilitária de limpeza (usa refs para garantir que removemos os layers corretos)
+    const removeExistingRoute = () => {
+      try {
+        if (routeLayerRef.current && mapRef.current.hasLayer(routeLayerRef.current)) {
+          mapRef.current.removeLayer(routeLayerRef.current)
+        }
+        (routeMarkersRef.current || []).forEach(m => {
+          try { if (mapRef.current.hasLayer(m)) mapRef.current.removeLayer(m) } catch {}
+        })
+      } catch (err) {
+        console.warn('Erro ao remover rota anterior:', err)
+      } finally {
+        routeLayerRef.current = null
+        routeMarkersRef.current = []
+        setRouteLayer(null)
+        setRouteMarkers([])
+      }
+    }
+
+    // sempre limpa rota anterior primeiro (isso resolve o problema de "rota presa")
+    removeExistingRoute()
+
+    // Se não há dados novos, apenas limpamos e saímos
+    if (!routeData) {
+      return
+    }
 
     try {
-      // Limpar rota anterior
-      if (routeLayer && mapRef.current.hasLayer(routeLayer)) {
-        mapRef.current.removeLayer(routeLayer)
-      }
-      routeMarkers.forEach(marker => {
-        if (mapRef.current.hasLayer(marker)) {
-          mapRef.current.removeLayer(marker)
-        }
-      })
-
-      // Desenhar nova polyline
+      // desenhar nova polyline
       const polyline = L.polyline(routeData.routeCoords, {
         color: '#0b5ed7',
         weight: 5,
@@ -263,44 +281,35 @@ export default function MunicipalitiesMap({
         lineCap: 'round',
         lineJoin: 'round'
       }).addTo(mapRef.current)
+      routeLayerRef.current = polyline
       setRouteLayer(polyline)
 
-      // Marcadores
+      // criar marcadores
       const markers = []
-      
+
       const originMarker = L.marker(
         [routeData.routeOrigin.latitude, routeData.routeOrigin.longitude],
-        {
-          icon: L.icon({
-            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34],
-            shadowSize: [41, 41]
-          })
-        }
+        { /* opção de icon */ }
       ).bindPopup(routeData.routeOrigin.nome).addTo(mapRef.current)
       markers.push(originMarker)
 
-      const destMarker = L.marker([routeData.lat, routeData.lon], {
-        icon: L.icon({
-          iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-          iconSize: [25, 41],
-          iconAnchor: [12, 41],
-          popupAnchor: [1, -34],
-          shadowSize: [41, 41]
-        })
-      }).bindPopup('Destino').addTo(mapRef.current)
+      const destMarker = L.marker([routeData.lat, routeData.lon], { /* icon */ })
+        .bindPopup('Destino').addTo(mapRef.current)
       markers.push(destMarker)
 
+      routeMarkersRef.current = markers
       setRouteMarkers(markers)
-      mapRef.current.fitBounds(polyline.getBounds(), { padding: [50, 50] })
-    } catch (error) {
-      console.error('Erro ao desenhar rota:', error)
+
+      mapRef.current.fitBounds(polyline.getBounds(), { padding: [50,50] })
+    } catch (err) {
+      console.error('Erro ao desenhar rota:', err)
     }
-  }, [routeData])
+
+    // cleanup se o effect for re-executado ou componente desmontar
+    return () => {
+      removeExistingRoute()
+    }
+  }, [routeData]) // roda quando routeData muda
 
   function handleMapClicked(payload) {
       const { lat, lon } = payload
